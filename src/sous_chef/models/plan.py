@@ -1,0 +1,170 @@
+"""WeeklyPlan and meal models: the propose_plan payload (weekly-plan.schema.json).
+
+Field descriptions are pinned verbatim against the contract schema by
+tests/contract/test_plan_schema.py — keep them in sync with the contract.
+"""
+
+from __future__ import annotations
+
+from datetime import datetime
+from enum import StrEnum
+
+from pydantic import BaseModel, ConfigDict, Field
+from pydantic.json_schema import SkipJsonSchema
+
+
+class PlanStatus(StrEnum):
+    DRAFT = "draft"
+    ACCEPTED = "accepted"
+    FINAL = "final"
+
+
+def normalize_dish_name(name: str) -> str:
+    """Casefold, trim, and collapse whitespace for repetition matching (FR-023)."""
+    return " ".join(name.casefold().split())
+
+
+class Ingredient(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    name: str = Field(
+        description="Ingredient name; merged across meals after normalization."
+    )
+    quantity: float = Field(
+        description="Amount in the given unit. Validator enforces > 0."
+    )
+    unit: str = Field(
+        description=(
+            "Unit token: g, kg, oz, lb, ml, l, tsp, tbsp, cup, count, "
+            "or a free-form container unit like 'can'."
+        )
+    )
+    estimated_price_usd: float = Field(
+        description=(
+            "Good-faith typical grocery price for this quantity, USD. "
+            "The weekly bill is the computed sum of these."
+        )
+    )
+
+
+class BatchDetails(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    lunches_covered: int = Field(description="Must equal the plan's lunch_count.")
+    total_portions: int = Field(
+        description=(
+            "Total portions cooked once: (lunches_covered + 1 dinner night) x servings."
+        )
+    )
+
+
+class StretchDetails(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    technique: str = Field(
+        description=(
+            "The new cooking technique this meal introduces, named (e.g. 'braising'). "
+            "Must not appear in cooked-meal technique history."
+        )
+    )
+
+
+class Meal(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    name: str = Field(
+        description=(
+            "Named main dish, e.g. 'Chicken chili'. "
+            "Repetition matching uses the normalized form of this name."
+        )
+    )
+    primary_protein: str = Field(
+        description="Primary protein source, stated qualitatively (FR-007)."
+    )
+    prep_minutes: int = Field(
+        description="Estimated prep time in minutes. Validator enforces > 0."
+    )
+    servings: int = Field(
+        description="Servings for this meal's cooking night. Validator enforces > 0."
+    )
+    batch: BatchDetails | None = Field(
+        description="Non-null on exactly one meal: the big-batch meal-prep dish."
+    )
+    stretch: StretchDetails | None = Field(
+        description=(
+            "Non-null on exactly one meal (distinct from the batch meal): "
+            "the stretch meal."
+        )
+    )
+    source_url: str | None = Field(
+        description=(
+            "Source URL when the meal is based on a recipe found via web search "
+            "(FR-010); null otherwise."
+        )
+    )
+    user_requested_repeat: bool = Field(
+        description=(
+            "True only when the user explicitly asked to repeat this past meal; "
+            "exempts it from the 4-week repetition rule."
+        )
+    )
+    ingredients: list[Ingredient] = Field(
+        description=(
+            "All ingredients, with quantities scaled to this meal's full coverage "
+            "(for the batch meal: every covered lunch plus its dinner night)."
+        )
+    )
+
+    @property
+    def normalized_name(self) -> str:
+        return normalize_dish_name(self.name)
+
+
+class WeeklyPlan(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    week_id: str = Field(
+        description="ISO 8601 week the plan belongs to, e.g. '2026-W30'."
+    )
+    dinner_count: int = Field(
+        description=(
+            "Number of dinners the user asked to cook this week. "
+            "Validator enforces 3-4."
+        )
+    )
+    lunch_count: int = Field(
+        description=(
+            "Number of lunches to cover, all supplied by the batch meal. "
+            "Validator enforces 0-7."
+        )
+    )
+    diet_type: str | None = Field(
+        description="User-stated diet type (e.g. 'vegetarian'); null when none stated."
+    )
+    default_servings: int = Field(
+        description=(
+            "Servings per meal unless a meal overrides; "
+            "1 unless the user stated otherwise."
+        )
+    )
+    weekly_budget_usd: float | None = Field(
+        description=(
+            "Weekly grocery budget if the user set one this session; null otherwise."
+        )
+    )
+    meals: list[Meal] = Field(
+        description=(
+            "Exactly dinner_count meals. Exactly one meal carries batch details and "
+            "exactly one different meal carries stretch details."
+        )
+    )
+    status: SkipJsonSchema[PlanStatus] = PlanStatus.DRAFT
+    accepted_at: SkipJsonSchema[datetime | None] = None
+
+    @property
+    def batch_meal(self) -> Meal | None:
+        return next((meal for meal in self.meals if meal.batch is not None), None)
+
+    @property
+    def stretch_meal(self) -> Meal | None:
+        return next((meal for meal in self.meals if meal.stretch is not None), None)

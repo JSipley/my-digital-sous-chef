@@ -39,22 +39,22 @@ Single project per plan.md: `src/sous_chef/` and `tests/` at repository root.
 
 ### Tests (write first, observe FAIL)
 
-- [ ] T005 [P] Unit tests for ISO-week identity and lifecycle (week_id computation in configured timezone, Monday-start boundaries, previous-4-weeks window, week-end transition to `final`) in `tests/unit/test_weeks.py`
-- [ ] T006 [P] Contract test: WeeklyPlan Pydantic model JSON schema round-trips against `specs/001-weekly-dinner-planner/contracts/weekly-plan.schema.json` (strict, `additionalProperties: false` throughout) in `tests/contract/test_plan_schema.py`
+- [X] T005 [P] Unit tests for ISO-week identity and lifecycle (week_id computation in configured timezone, Monday-start boundaries, previous-4-weeks window, week-end transition to `final`) in `tests/unit/test_weeks.py`
+- [X] T006 [P] Contract test: WeeklyPlan Pydantic model JSON schema round-trips against `specs/001-weekly-dinner-planner/contracts/weekly-plan.schema.json` (strict, `additionalProperties: false` throughout) in `tests/contract/test_plan_schema.py`
 
 ### Implementation
 
-- [ ] T007 [P] Create WeeklyPlan, Meal, BatchDetails, StretchDetails, Ingredient Pydantic models (fields and constraints per data-model.md, incl. `normalized_name` derivation and `status` enum draft/accepted/final) in `src/sous_chef/models/plan.py`
-- [ ] T008 [P] Create GroceryList and GroceryItem models (items, `estimated_total_usd`, `budget_delta_usd`, compound quantities) in `src/sous_chef/models/grocery.py`
-- [ ] T009 [P] Create MealHistoryEntry, CookedStatus enum (planned/cooked/skipped), CheckinResult models in `src/sous_chef/models/history.py`
-- [ ] T010 [P] Implement week service (current `week_id` like `2026-W30` in SOUS_CHEF_TZ, 4-week lookback list, lazy week-end finalization predicate) in `src/sous_chef/services/weeks.py`
-- [ ] T011 Implement SQLite bootstrap in `src/sous_chef/services/history_repo.py`: connection management and schema creation for `plans` and `meals` tables plus `idx_meals_cooked` index exactly per data-model.md
-- [ ] T012 Implement Anthropic client setup in `src/sous_chef/agent/client.py`: model/config from `config.py`, adaptive thinking, streaming, prompt caching on stable prefix, beta tool runner invocation with `pause_turn` restart handling capped at 5 restarts (research R6)
-- [ ] T013 Implement in-memory SessionState (chat_id, messages, dinner/lunch counts, diet_type, default_servings, weekly_budget_usd, staged_draft, repetition_relaxed, pending_checkin) and the per-chat message loop in `src/sous_chef/agent/session.py`; abandoning a session discards the object with no persistence (FR-021)
-- [ ] T014 Implement scripted fake LLM transport exposing the same interface as `agent/client.py` and replaying scripted tool-call/text transcripts deterministically offline in `tests/integration/fake_llm.py`
-- [ ] T015 Implement Telegram Application in `src/sous_chef/bot/app.py`: long polling, single-chat-ID allowlist ("this is a private bot" refusal, no state change), command handlers `/start`, `/plan`, `/history`, `/cancel`, and plain-text forwarding to the agent session per contracts/telegram-bot.md
-- [ ] T016 [P] Implement typing indicator sent before any agent call, refreshed every ~4 s until reply, plus immediate ack message for plan-generation turns in `src/sous_chef/bot/ack.py` (SC-007, FR-027)
-- [ ] T017 Implement entry point wiring config → history_repo → agent client/session → bot application in `src/sous_chef/__main__.py` (`python -m sous_chef`)
+- [X] T007 [P] Create WeeklyPlan, Meal, BatchDetails, StretchDetails, Ingredient Pydantic models (fields and constraints per data-model.md, incl. `normalized_name` derivation and `status` enum draft/accepted/final) in `src/sous_chef/models/plan.py`
+- [X] T008 [P] Create GroceryList and GroceryItem models (items, `estimated_total_usd`, `budget_delta_usd`, compound quantities) in `src/sous_chef/models/grocery.py`
+- [X] T009 [P] Create MealHistoryEntry, CookedStatus enum (planned/cooked/skipped), CheckinResult models in `src/sous_chef/models/history.py`
+- [X] T010 [P] Implement week service (current `week_id` like `2026-W30` in SOUS_CHEF_TZ, 4-week lookback list, lazy week-end finalization predicate) in `src/sous_chef/services/weeks.py`
+- [X] T011 Implement SQLite bootstrap in `src/sous_chef/services/history_repo.py`: connection management and schema creation for `plans` and `meals` tables plus `idx_meals_cooked` index exactly per data-model.md
+- [X] T012 Implement Anthropic client setup in `src/sous_chef/agent/client.py`: model/config from `config.py`, adaptive thinking, streaming, prompt caching on stable prefix, beta tool runner invocation with `pause_turn` restart handling capped at 5 restarts (research R6)
+- [X] T013 Implement in-memory SessionState (chat_id, messages, dinner/lunch counts, diet_type, default_servings, weekly_budget_usd, staged_draft, repetition_relaxed, pending_checkin) and the per-chat message loop in `src/sous_chef/agent/session.py`; abandoning a session discards the object with no persistence (FR-021)
+- [X] T014 Implement scripted fake LLM transport exposing the same interface as `agent/client.py` and replaying scripted tool-call/text transcripts deterministically offline in `tests/integration/fake_llm.py`
+- [X] T015 Implement Telegram Application in `src/sous_chef/bot/app.py`: long polling, single-chat-ID allowlist ("this is a private bot" refusal, no state change), command handlers `/start`, `/plan`, `/history`, `/cancel`, and plain-text forwarding to the agent session per contracts/telegram-bot.md
+- [X] T016 [P] Implement typing indicator sent before any agent call, refreshed every ~4 s until reply, plus immediate ack message for plan-generation turns in `src/sous_chef/bot/ack.py` (SC-007, FR-027)
+- [X] T017 Implement entry point wiring config → history_repo → agent client/session → bot application in `src/sous_chef/__main__.py` (`python -m sous_chef`)
 
 **Checkpoint**: Foundation ready — user story implementation can now begin
 
