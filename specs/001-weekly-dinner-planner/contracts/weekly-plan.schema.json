@@ -1,0 +1,159 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "weekly-plan.schema.json",
+  "title": "WeeklyPlan",
+  "description": "Input schema for the propose_plan tool (declared with strict: true). Numeric ranges (dinner_count 3-4, lunch_count 0-7, positive quantities) are enforced by deterministic validators, not the schema, because strict tool use does not support numeric constraints.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "week_id",
+    "dinner_count",
+    "lunch_count",
+    "diet_type",
+    "default_servings",
+    "weekly_budget_usd",
+    "meals"
+  ],
+  "properties": {
+    "week_id": {
+      "type": "string",
+      "description": "ISO 8601 week the plan belongs to, e.g. '2026-W30'."
+    },
+    "dinner_count": {
+      "type": "integer",
+      "description": "Number of dinners the user asked to cook this week. Validator enforces 3-4."
+    },
+    "lunch_count": {
+      "type": "integer",
+      "description": "Number of lunches to cover, all supplied by the batch meal. Validator enforces 0-7."
+    },
+    "diet_type": {
+      "type": ["string", "null"],
+      "description": "User-stated diet type (e.g. 'vegetarian'); null when none stated."
+    },
+    "default_servings": {
+      "type": "integer",
+      "description": "Servings per meal unless a meal overrides; 1 unless the user stated otherwise."
+    },
+    "weekly_budget_usd": {
+      "type": ["number", "null"],
+      "description": "Weekly grocery budget if the user set one this session; null otherwise."
+    },
+    "meals": {
+      "type": "array",
+      "description": "Exactly dinner_count meals. Exactly one meal carries batch details and exactly one different meal carries stretch details.",
+      "items": { "$ref": "#/$defs/Meal" }
+    }
+  },
+  "$defs": {
+    "Meal": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "primary_protein",
+        "prep_minutes",
+        "servings",
+        "batch",
+        "stretch",
+        "source_url",
+        "user_requested_repeat",
+        "ingredients"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Named main dish, e.g. 'Chicken chili'. Repetition matching uses the normalized form of this name."
+        },
+        "primary_protein": {
+          "type": "string",
+          "description": "Primary protein source, stated qualitatively (FR-007)."
+        },
+        "prep_minutes": {
+          "type": "integer",
+          "description": "Estimated prep time in minutes. Validator enforces > 0."
+        },
+        "servings": {
+          "type": "integer",
+          "description": "Servings for this meal's cooking night. Validator enforces > 0."
+        },
+        "batch": {
+          "anyOf": [
+            { "$ref": "#/$defs/BatchDetails" },
+            { "type": "null" }
+          ],
+          "description": "Non-null on exactly one meal: the big-batch meal-prep dish."
+        },
+        "stretch": {
+          "anyOf": [
+            { "$ref": "#/$defs/StretchDetails" },
+            { "type": "null" }
+          ],
+          "description": "Non-null on exactly one meal (distinct from the batch meal): the stretch meal."
+        },
+        "source_url": {
+          "type": ["string", "null"],
+          "description": "Source URL when the meal is based on a recipe found via web search (FR-010); null otherwise."
+        },
+        "user_requested_repeat": {
+          "type": "boolean",
+          "description": "True only when the user explicitly asked to repeat this past meal; exempts it from the 4-week repetition rule."
+        },
+        "ingredients": {
+          "type": "array",
+          "description": "All ingredients, with quantities scaled to this meal's full coverage (for the batch meal: every covered lunch plus its dinner night).",
+          "items": { "$ref": "#/$defs/Ingredient" }
+        }
+      }
+    },
+    "BatchDetails": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["lunches_covered", "total_portions"],
+      "properties": {
+        "lunches_covered": {
+          "type": "integer",
+          "description": "Must equal the plan's lunch_count."
+        },
+        "total_portions": {
+          "type": "integer",
+          "description": "Total portions cooked once: (lunches_covered + 1 dinner night) x servings."
+        }
+      }
+    },
+    "StretchDetails": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["technique"],
+      "properties": {
+        "technique": {
+          "type": "string",
+          "description": "The new cooking technique this meal introduces, named (e.g. 'braising'). Must not appear in cooked-meal technique history."
+        }
+      }
+    },
+    "Ingredient": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "quantity", "unit", "estimated_price_usd"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Ingredient name; merged across meals after normalization."
+        },
+        "quantity": {
+          "type": "number",
+          "description": "Amount in the given unit. Validator enforces > 0."
+        },
+        "unit": {
+          "type": "string",
+          "description": "Unit token: g, kg, oz, lb, ml, l, tsp, tbsp, cup, count, or a free-form container unit like 'can'."
+        },
+        "estimated_price_usd": {
+          "type": "number",
+          "description": "Good-faith typical grocery price for this quantity, USD. The weekly bill is the computed sum of these."
+        }
+      }
+    }
+  }
+}
