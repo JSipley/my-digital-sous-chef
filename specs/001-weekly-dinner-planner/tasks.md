@@ -24,10 +24,10 @@ Single project per plan.md: `src/sous_chef/` and `tests/` at repository root.
 
 **Purpose**: Project initialization, tooling, and CI per research R2/R14
 
-- [ ] T001 Create project skeleton: `pyproject.toml` (uv-managed; runtime deps `anthropic`, `python-telegram-bot` v22, `pydantic` v2; dev deps `pytest`, `pytest-asyncio`, `ruff`, `mypy`), package dirs `src/sous_chef/{models,services,agent,bot}/` with `__init__.py` files, test dirs `tests/{contract,integration,unit}/`, and pytest config registering the `live` marker excluded from the default run (`-m "not live"`)
-- [ ] T002 [P] Configure `ruff` (lint + format, zero-warning gate) and `mypy` (`disallow_untyped_defs` on `src/`) in `pyproject.toml`
-- [ ] T003 [P] Add GitHub Actions workflow running `ruff check`, `ruff format --check`, `mypy src/`, and `pytest` on every PR in `.github/workflows/ci.yml`
-- [ ] T004 Implement env-based settings (ANTHROPIC_API_KEY, SOUS_CHEF_TELEGRAM_TOKEN, SOUS_CHEF_CHAT_ID, SOUS_CHEF_DB_PATH, SOUS_CHEF_TZ, SOUS_CHEF_MODEL defaulting to `claude-sonnet-5`) in `src/sous_chef/config.py`
+- [X] T001 Create project skeleton: `pyproject.toml` (uv-managed; runtime deps `anthropic`, `python-telegram-bot` v22, `pydantic` v2; dev deps `pytest`, `pytest-asyncio`, `ruff`, `mypy`), package dirs `src/sous_chef/{models,services,agent,bot}/` with `__init__.py` files, test dirs `tests/{contract,integration,unit}/`, and pytest config registering the `live` marker excluded from the default run (`-m "not live"`)
+- [X] T002 [P] Configure `ruff` (lint + format, zero-warning gate) and `mypy` (`disallow_untyped_defs` on `src/`) in `pyproject.toml`
+- [X] T003 [P] Add GitHub Actions workflow running `ruff check`, `ruff format --check`, `mypy src/`, and `pytest` on every PR in `.github/workflows/ci.yml`
+- [X] T004 Implement env-based settings (ANTHROPIC_API_KEY, SOUS_CHEF_TELEGRAM_TOKEN, SOUS_CHEF_CHAT_ID, SOUS_CHEF_DB_PATH, SOUS_CHEF_TZ, SOUS_CHEF_MODEL defaulting to `claude-sonnet-5`) in `src/sous_chef/config.py`
 
 ---
 
