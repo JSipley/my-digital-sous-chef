@@ -40,7 +40,20 @@
 
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
-[Gates determined based on constitution file]
+Gates derived from `.specify/memory/constitution.md` v1.0.0:
+
+- [ ] **Simplicity gate (Principle I)**: Plan uses the simplest structure that satisfies
+  the feature; any added projects, layers, or patterns are justified in Complexity
+  Tracking. Linting/formatting tooling is identified in Setup.
+- [ ] **Test-first gate (Principle II)**: Test tasks precede implementation tasks for
+  every user story; each acceptance scenario maps to at least one integration test;
+  contract tests planned for every public API or shared schema.
+- [ ] **UX consistency gate (Principle III)**: User-facing surfaces specify loading,
+  empty, and error states; components come from the shared design system; domain
+  terminology is canonical; WCAG 2.1 AA is addressed.
+- [ ] **Performance gate (Principle IV)**: Success Criteria include measurable
+  performance numbers, or the constitution defaults (API p95 < 200 ms, search < 500 ms,
+  load < 2 s, feedback < 100 ms) are explicitly adopted.
 
 ## Project Structure
 
