@@ -3,15 +3,12 @@
 from __future__ import annotations
 
 from sous_chef.agent.client import AnthropicTransport
+from sous_chef.agent.prompt import SYSTEM_PROMPT
 from sous_chef.agent.session import Session
+from sous_chef.agent.tools import build_tools
 from sous_chef.bot.app import BotHandlers, build_application
 from sous_chef.config import Settings
 from sous_chef.services.history_repo import HistoryRepo
-
-PLACEHOLDER_SYSTEM_PROMPT = (
-    "You are a helpful meal-planning assistant. Full planning behavior arrives "
-    "with the propose_plan tooling."
-)
 
 
 def main() -> None:
@@ -24,7 +21,8 @@ def main() -> None:
             chat_id=chat_id,
             transport=transport,
             repo=repo,
-            system_prompt=PLACEHOLDER_SYSTEM_PROMPT,
+            system_prompt=SYSTEM_PROMPT,
+            tool_factory=build_tools,
         )
 
     handlers = BotHandlers(
