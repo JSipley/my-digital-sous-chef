@@ -7,9 +7,9 @@
 ## Summary
 
 A single-user, conversational meal-planning agent delivered as a **Telegram bot**. The
-conversation and meal curation are driven by the Claude API (Claude Opus 4.8 with
-adaptive thinking and the server-side web-search tool for recipe sourcing); all hard
-rules are enforced by deterministic Python code. The core pattern is **"the model
+conversation and meal curation are driven by the Claude API (Claude Sonnet 5 with
+adaptive thinking and the server-side web-search tool for recipe sourcing); all hard rules are enforced by deterministic Python code. The
+core pattern is **"the model
 proposes, the code disposes"**: the agent converses freely and curates meals, but every
 draft plan must pass through a strict-schema `propose_plan` tool whose payload is
 validated by deterministic validators (meal counts, exactly-one batch/stretch flags,

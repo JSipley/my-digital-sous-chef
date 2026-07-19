@@ -25,7 +25,7 @@ SOUS_CHEF_TELEGRAM_TOKEN=123456:ABC-...
 SOUS_CHEF_CHAT_ID=123456789          # the single authorized chat
 SOUS_CHEF_DB_PATH=./sous_chef.db     # SQLite file (created on first accept)
 SOUS_CHEF_TZ=America/New_York        # ISO-week boundary timezone
-SOUS_CHEF_MODEL=claude-opus-4-8      # config-swappable (research R4)
+SOUS_CHEF_MODEL=claude-sonnet-5      # config-swappable (research R4); token-efficient default
 ```
 
 ## Setup

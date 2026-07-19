@@ -59,25 +59,36 @@ cleanly with the async Anthropic SDK; handles retries/backoff against the Telegr
 ecosystem), raw HTTP against the Bot API (reinvents update polling, retry, and
 dispatch for no benefit).
 
-## R4. LLM → Claude Opus 4.8 (`claude-opus-4-8`) via the Anthropic Python SDK
+## R4. LLM → Claude Sonnet 5 (`claude-sonnet-5`) via the Anthropic Python SDK
 
-**Decision**: `claude-opus-4-8` with adaptive thinking (`thinking: {"type": "adaptive"}`),
-`output_config.effort` tuned per call (default `high`; the quick conversational turns
-may drop to `medium`/`low` after measurement), streaming enabled, prompt caching on the
-stable system prompt. The model ID lives in `config.py` so it is a one-line swap.
+**Decision**: `claude-sonnet-5` with adaptive thinking (`thinking: {"type": "adaptive"}`),
+`output_config.effort` tuned per call (default `medium`; conversational turns that
+don't touch `propose_plan` may drop to `low` after measurement), streaming enabled,
+prompt caching on the stable system prompt. The model ID lives in `config.py` so it is
+a one-line swap.
 
-**Rationale**: Curation is a multi-constraint reasoning task (nutrition > budget >
-prep time > skill-building, plus repetition rules and per-session preferences) — the
-current default-capable model is the right starting point, and Opus 4.8 is the current
-recommended default for new applications. Adaptive thinking replaces deprecated
-`budget_tokens`; sampling parameters (`temperature` etc.) are not sent (removed on
-this model family). Streaming + prompt caching serve the SC-007 latency budget (5 s
-visible response, 30 s draft plan).
+**Rationale**: This is a single-user hobby bot calling the API on every turn of every
+session, indefinitely — token cost compounds in a way raw capability doesn't need to
+justify. Sonnet 5 handles the curation task's multi-constraint reasoning (nutrition >
+budget > prep time > skill-building, plus repetition rules and per-session
+preferences) comfortably: the hard rules are enforced by deterministic validators
+(R7), not model judgment, so the model's job is proposing a plausible plan and
+conversing, not guaranteeing correctness — exactly the workload Sonnet-class models
+are priced and sized for. Opus would add cost on every turn for reasoning headroom
+this task doesn't consume, since `propose_plan` rejection + self-correction already
+covers the cases where a weaker model gets the structured output wrong. Adaptive
+thinking replaces deprecated `budget_tokens`; sampling parameters (`temperature` etc.)
+are not sent (removed on this model family). Streaming + prompt caching serve the
+SC-007 latency budget (5 s visible response, 30 s draft plan) and further cut
+per-turn token cost by reusing the cached system-prompt/tool-list prefix.
 
-**Alternatives considered**: `claude-sonnet-5` (viable cost reduction; kept as a
-config-swap fallback rather than the default), `claude-haiku-4-5` (fast but weakest
-fit for multi-constraint curation quality), self-hosted open models (operational
-burden far beyond a personal tool).
+**Alternatives considered**: `claude-opus-4-8` (stronger reasoning ceiling, but at
+multiples of the token cost for a task whose correctness is already backstopped by
+deterministic validators; kept as a config-swap upgrade path if real usage shows
+Sonnet-quality curation is unsatisfying), `claude-haiku-4-5` (cheapest, but weakest
+fit for multi-constraint curation quality — risks more `propose_plan` rejection
+round-trips, which would spend the token savings on retries), self-hosted open models
+(operational burden far beyond a personal tool).
 
 ## R5. Web recipe search → Anthropic server-side `web_search_20260209` tool
 
