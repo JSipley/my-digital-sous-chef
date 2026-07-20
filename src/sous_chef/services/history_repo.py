@@ -8,12 +8,26 @@ window, technique history, and recall queries.
 from __future__ import annotations
 
 import sqlite3
+from collections.abc import Sequence
 from datetime import datetime
 from pathlib import Path
 from types import TracebackType
+from typing import Any
 
 from sous_chef.models.grocery import GroceryList
-from sous_chef.models.plan import WeeklyPlan
+from sous_chef.models.history import CheckinResult, CookedStatus, MealHistoryEntry
+from sous_chef.models.plan import WeeklyPlan, normalize_dish_name
+from sous_chef.services.weeks import REPETITION_WINDOW_WEEKS, previous_week_ids
+
+
+class CheckinError(Exception):
+    """A cooked check-in that cannot be recorded (contracts/agent-tools.md)."""
+
+    def __init__(self, code: str, message: str) -> None:
+        super().__init__(message)
+        self.code = code
+        self.message = message
+
 
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS plans (
@@ -121,6 +135,156 @@ class HistoryRepo:
             "SELECT status FROM plans WHERE week_id = ?", (week_id,)
         ).fetchone()
         return None if row is None else str(row["status"])
+
+    def has_any_plans(self) -> bool:
+        return (
+            self.connection.execute("SELECT 1 FROM plans LIMIT 1").fetchone()
+            is not None
+        )
+
+    def finalize_weeks_before(self, week_id: str) -> None:
+        """Lazily mark past weeks final (research R11); called on lookup."""
+        with self.connection:
+            self.connection.execute(
+                "UPDATE plans SET status = 'final' "
+                "WHERE status = 'accepted' AND week_id < ?",
+                (week_id,),
+            )
+
+    def cooked_dish_names_before(
+        self, week_id: str, weeks: int = REPETITION_WINDOW_WEEKS
+    ) -> list[str]:
+        """Normalized names cooked in the `weeks` ISO weeks before `week_id`."""
+        window = previous_week_ids(week_id, weeks)
+        placeholders = ", ".join("?" for _ in window)
+        rows = self.connection.execute(
+            "SELECT DISTINCT normalized_name FROM meals "
+            f"WHERE cooked_status = 'cooked' AND week_id IN ({placeholders}) "
+            "ORDER BY normalized_name",
+            window,
+        ).fetchall()
+        return [str(row["normalized_name"]) for row in rows]
+
+    def cooked_techniques(self) -> list[str]:
+        """Distinct techniques from cooked stretch meals, all history (FR-006)."""
+        rows = self.connection.execute(
+            "SELECT DISTINCT technique FROM meals "
+            "WHERE is_stretch = 1 AND cooked_status = 'cooked' "
+            "AND technique IS NOT NULL ORDER BY technique"
+        ).fetchall()
+        return [str(row["technique"]) for row in rows]
+
+    def meals_for_week(self, week_id: str) -> list[MealHistoryEntry]:
+        rows = self.connection.execute(
+            "SELECT week_id, meal_name, normalized_name, is_batch, is_stretch, "
+            "technique, cooked_status FROM meals WHERE week_id = ? "
+            "ORDER BY meal_name",
+            (week_id,),
+        ).fetchall()
+        return [_meal_entry(row) for row in rows]
+
+    def find_meals_by_normalized_name(self, name: str) -> list[MealHistoryEntry]:
+        """Past occurrences of a dish for recall (FR-024), most recent first."""
+        rows = self.connection.execute(
+            "SELECT week_id, meal_name, normalized_name, is_batch, is_stretch, "
+            "technique, cooked_status FROM meals WHERE normalized_name = ? "
+            "ORDER BY week_id DESC",
+            (normalize_dish_name(name),),
+        ).fetchall()
+        return [_meal_entry(row) for row in rows]
+
+    def pending_checkin_week_id(self) -> str | None:
+        """The most recent final week still holding planned rows (FR-021)."""
+        row = self.connection.execute(
+            "SELECT p.week_id FROM plans p WHERE p.status = 'final' AND EXISTS ("
+            "  SELECT 1 FROM meals m"
+            "  WHERE m.week_id = p.week_id AND m.cooked_status = 'planned'"
+            ") ORDER BY p.week_id DESC LIMIT 1"
+        ).fetchone()
+        return None if row is None else str(row["week_id"])
+
+    def weeks_summary(self, weeks_back: int) -> list[dict[str, Any]]:
+        """Per-week meal summaries for get_meal_history, most recent first."""
+        week_rows = self.connection.execute(
+            "SELECT week_id, status FROM plans ORDER BY week_id DESC LIMIT ?",
+            (weeks_back,),
+        ).fetchall()
+        return [
+            {
+                "week_id": row["week_id"],
+                "status": row["status"],
+                "meals": [
+                    {
+                        "name": entry.meal_name,
+                        "is_batch": entry.is_batch,
+                        "is_stretch": entry.is_stretch,
+                        "technique": entry.technique,
+                        "cooked_status": entry.cooked_status.value,
+                    }
+                    for entry in self.meals_for_week(str(row["week_id"]))
+                ],
+            }
+            for row in week_rows
+        ]
+
+    def record_checkin(
+        self, week_id: str, cooked_meal_names: Sequence[str], *, user_skipped: bool
+    ) -> CheckinResult:
+        """Mark listed meals cooked and the rest of the week skipped (FR-021).
+
+        With `user_skipped=True` every planned meal is marked cooked.
+        Raises CheckinError for an unknown week, an unknown meal name, or a
+        week whose check-in was already recorded.
+        """
+        if self.plan_status(week_id) is None:
+            raise CheckinError("unknown_week", f"no plan exists for week {week_id}")
+        entries = self.meals_for_week(week_id)
+        planned = [e for e in entries if e.cooked_status is CookedStatus.PLANNED]
+        if not planned:
+            raise CheckinError(
+                "already_recorded",
+                f"the cooked check-in for week {week_id} was already recorded",
+            )
+        if user_skipped:
+            cooked_normalized = {entry.normalized_name for entry in planned}
+        else:
+            cooked_normalized = {
+                normalize_dish_name(name) for name in cooked_meal_names
+            }
+            unknown = cooked_normalized - {entry.normalized_name for entry in entries}
+            if unknown:
+                raise CheckinError(
+                    "unknown_meal_name",
+                    f"week {week_id} has no meal named: {', '.join(sorted(unknown))}",
+                )
+        cooked: list[str] = []
+        skipped: list[str] = []
+        with self.connection:
+            for entry in planned:
+                is_cooked = entry.normalized_name in cooked_normalized
+                (cooked if is_cooked else skipped).append(entry.meal_name)
+                self.connection.execute(
+                    "UPDATE meals SET cooked_status = ? "
+                    "WHERE week_id = ? AND normalized_name = ?",
+                    (
+                        "cooked" if is_cooked else "skipped",
+                        week_id,
+                        entry.normalized_name,
+                    ),
+                )
+        return CheckinResult(week_id=week_id, cooked=cooked, skipped=skipped)
+
+
+def _meal_entry(row: sqlite3.Row) -> MealHistoryEntry:
+    return MealHistoryEntry(
+        week_id=row["week_id"],
+        meal_name=row["meal_name"],
+        normalized_name=row["normalized_name"],
+        is_batch=bool(row["is_batch"]),
+        is_stretch=bool(row["is_stretch"]),
+        technique=row["technique"],
+        cooked_status=CookedStatus(row["cooked_status"]),
+    )
 
     def __enter__(self) -> HistoryRepo:
         return self

@@ -79,6 +79,9 @@ class Session:
         self.state = SessionState(chat_id=chat_id)
         self.repo = repo
         self.last_acceptance: AcceptedArtifacts | None = None
+        # Consecutive repeated_dish rejections; drives announced relaxation
+        # of the repetition window (research R10).
+        self.repetition_rejections = 0
         resolved_tz = tz if tz is not None else datetime.now().astimezone().tzinfo
         assert resolved_tz is not None  # astimezone() always attaches a tzinfo
         self.tz: tzinfo = resolved_tz

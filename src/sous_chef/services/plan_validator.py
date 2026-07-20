@@ -7,9 +7,10 @@ are never shown raw to the user (contracts/agent-tools.md).
 
 from __future__ import annotations
 
+from collections.abc import Collection
 from dataclasses import dataclass
 
-from sous_chef.models.plan import Meal, WeeklyPlan
+from sous_chef.models.plan import Meal, WeeklyPlan, normalize_dish_name
 
 DINNER_RANGE = range(3, 5)
 LUNCH_RANGE = range(0, 8)
@@ -23,6 +24,8 @@ ERROR_CODES = frozenset(
         "stretch_meal_count",
         "batch_stretch_same_meal",
         "batch_coverage_mismatch",
+        "technique_not_new",
+        "repeated_dish",
         "missing_field",
         "invalid_value",
     }
@@ -35,14 +38,72 @@ class PlanError:
     message: str
 
 
-def validate_plan(plan: WeeklyPlan) -> list[PlanError]:
-    """All rule violations in a proposed plan; an empty list means valid."""
+def validate_plan(
+    plan: WeeklyPlan,
+    *,
+    cooked_names_last_4_weeks: Collection[str] = (),
+    known_techniques: Collection[str] = (),
+    repetition_relaxed: bool = False,
+) -> list[PlanError]:
+    """All rule violations in a proposed plan; an empty list means valid.
+
+    History context comes from the caller: normalized dish names cooked in
+    the 4 weeks before the plan's week, and techniques from cooked stretch
+    meals (all history). `repetition_relaxed` is the session's announced
+    relaxation flag (research R10).
+    """
     errors: list[PlanError] = []
     errors.extend(_count_errors(plan))
     errors.extend(_flag_errors(plan))
     errors.extend(_batch_coverage_errors(plan))
     for meal in plan.meals:
         errors.extend(_meal_field_errors(meal))
+    if not repetition_relaxed:
+        errors.extend(_repeated_dish_errors(plan, cooked_names_last_4_weeks))
+    errors.extend(_technique_errors(plan, known_techniques))
+    return errors
+
+
+def _repeated_dish_errors(
+    plan: WeeklyPlan, cooked_names: Collection[str]
+) -> list[PlanError]:
+    cooked = {normalize_dish_name(name) for name in cooked_names}
+    offending = [
+        meal.name
+        for meal in plan.meals
+        if meal.normalized_name in cooked and not meal.user_requested_repeat
+    ]
+    if not offending:
+        return []
+    names = ", ".join(normalize_dish_name(name) for name in offending)
+    return [
+        PlanError(
+            "repeated_dish",
+            f"these dishes were cooked within the last 4 weeks: {names}; "
+            "propose different dishes unless the user explicitly asked for "
+            "a repeat",
+        )
+    ]
+
+
+def _technique_errors(
+    plan: WeeklyPlan, known_techniques: Collection[str]
+) -> list[PlanError]:
+    known = {normalize_dish_name(technique) for technique in known_techniques}
+    errors = []
+    for meal in plan.meals:
+        if meal.stretch is None:
+            continue
+        technique = normalize_dish_name(meal.stretch.technique)
+        if technique in known:
+            errors.append(
+                PlanError(
+                    "technique_not_new",
+                    f"the stretch technique '{technique}' is already in the "
+                    "user's cooked history; pick a technique they have not "
+                    "cooked before",
+                )
+            )
     return errors
 
 
