@@ -1,13 +1,16 @@
-"""Unit tests for estimated-bill totaling (T029, research R9).
+"""Unit tests for estimated-bill totaling and budget comparison (T029, T036).
 
 The bill is the computed sum of item price estimates — never generated as
-text. Nominal sums, empty/zero-price boundaries, and rounding determinism.
+text. Nominal sums, empty/zero-price boundaries, rounding determinism, and
+budget-delta math (FR-018/FR-020: over-budget plans report an exact overage,
+they are never rejected).
 """
 
 from typing import Any
 
 from sous_chef.models.plan import WeeklyPlan
 from sous_chef.services.grocery import build_grocery_list
+from sous_chef.services.plan_validator import validate_plan
 
 
 def ingredient(
@@ -100,3 +103,39 @@ class TestBillTotals:
     def test_no_budget_means_no_delta(self) -> None:
         grocery = build_grocery_list(plan_of([meal("A", [ingredient("a", 5.0)])]))
         assert grocery.budget_delta_usd is None
+
+
+class TestBudgetComparison:
+    def test_under_budget_delta_is_negative(self) -> None:
+        plan = plan_of(
+            [meal("A", [ingredient("chicken", 54.5)])], weekly_budget_usd=60.0
+        )
+        grocery = build_grocery_list(plan)
+        assert grocery.budget_delta_usd == -5.5
+
+    def test_overage_reports_exact_amount(self) -> None:
+        plan = plan_of([meal("A", [ingredient("wagyu", 74.5)])], weekly_budget_usd=60.0)
+        grocery = build_grocery_list(plan)
+        assert grocery.budget_delta_usd == 14.5
+
+    def test_exactly_at_budget_delta_is_zero(self) -> None:
+        plan = plan_of(
+            [meal("A", [ingredient("chicken", 60.0)])], weekly_budget_usd=60.0
+        )
+        grocery = build_grocery_list(plan)
+        assert grocery.budget_delta_usd == 0.0
+
+    def test_over_budget_plan_is_not_rejected_by_validators(self) -> None:
+        # FR-020: nutrition wins per FR-008 — an over-budget plan is valid;
+        # the overage is surfaced as data, never as a validation error.
+        meals = [
+            meal("Chicken chili", [ingredient("chicken", 99.0)])
+            | {"batch": {"lunches_covered": 0, "total_portions": 1}},
+            meal("Seared salmon", [ingredient("salmon", 88.0)])
+            | {"stretch": {"technique": "searing"}},
+            meal("Turkey stir-fry", [ingredient("turkey", 77.0)]),
+        ]
+        plan = plan_of(meals, weekly_budget_usd=10.0)
+        grocery = build_grocery_list(plan)
+        assert validate_plan(plan) == []
+        assert grocery.budget_delta_usd == round(99.0 + 88.0 + 77.0 - 10.0, 2)

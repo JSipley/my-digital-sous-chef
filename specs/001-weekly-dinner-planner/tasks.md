@@ -118,14 +118,14 @@ Single project per plan.md: `src/sous_chef/` and `tests/` at repository root.
 
 ### Tests for User Story 3 (MANDATORY — write first, observe FAIL) ⚠️
 
-- [ ] T036 [P] [US3] Unit tests for budget comparison — `budget_delta_usd` null without budget, negative under budget, positive overage with exact amount; over-budget plan staged not rejected — extending `tests/unit/test_bill_math.py`
-- [ ] T037 [P] [US3] Integration tests for US3 acceptance scenarios 1–5 (budget offered at start and declining doesn't block; no comparison when declined; bill fits when set; overage stated with amount + nutrition-preserving adjustments; mid-session change/removal updates comparison without restart) in `tests/integration/test_story3_budget.py`
+- [X] T036 [P] [US3] Unit tests for budget comparison — `budget_delta_usd` null without budget, negative under budget, positive overage with exact amount; over-budget plan staged not rejected — extending `tests/unit/test_bill_math.py`
+- [X] T037 [P] [US3] Integration tests for US3 acceptance scenarios 1–5 (budget offered at start and declining doesn't block; no comparison when declined; bill fits when set; overage stated with amount + nutrition-preserving adjustments; mid-session change/removal updates comparison without restart) in `tests/integration/test_story3_budget.py`
 
 ### Implementation for User Story 3
 
-- [ ] T038 [US3] Implement budget-delta computation in `src/sous_chef/services/grocery.py` and surface it through `propose_plan`/`accept_plan` results in `src/sous_chef/services/plan_validator.py` and `src/sous_chef/agent/tools.py` — over-budget plans return the overage, never a rejection (FR-018/FR-020, nutrition wins per FR-008)
-- [ ] T039 [US3] Extend the system prompt in `src/sous_chef/agent/prompt.py`: offer the budget option at the start of every planning conversation (declining never blocks), accept set/change/remove at any point before acceptance, state overage amounts plainly and offer cost-reducing adjustments that keep the nutrition standard, never carry a budget across weeks (FR-016/FR-017)
-- [ ] T040 [US3] Render the budget comparison line `(budget $YY — under/over by $Z)` on the grocery-list message when a budget is set in `src/sous_chef/bot/formatting.py`
+- [X] T038 [US3] Implement budget-delta computation in `src/sous_chef/services/grocery.py` and surface it through `propose_plan`/`accept_plan` results in `src/sous_chef/services/plan_validator.py` and `src/sous_chef/agent/tools.py` — over-budget plans return the overage, never a rejection (FR-018/FR-020, nutrition wins per FR-008)
+- [X] T039 [US3] Extend the system prompt in `src/sous_chef/agent/prompt.py`: offer the budget option at the start of every planning conversation (declining never blocks), accept set/change/remove at any point before acceptance, state overage amounts plainly and offer cost-reducing adjustments that keep the nutrition standard, never carry a budget across weeks (FR-016/FR-017)
+- [X] T040 [US3] Render the budget comparison line `(budget $YY — under/over by $Z)` on the grocery-list message when a budget is set in `src/sous_chef/bot/formatting.py`
 
 **Checkpoint**: Budget-aware planning works end-to-end; Stories 1–3 independently functional
 
