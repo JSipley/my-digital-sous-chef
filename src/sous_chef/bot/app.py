@@ -1,12 +1,13 @@
 """Telegram transport per contracts/telegram-bot.md.
 
-Long polling, single-chat allowlist, command handlers, and delivery of the
-agent's replies.
+Long polling, single-chat allowlist, command handlers, delivery of the
+agent's replies, and the user-visible error states (FR-028).
 """
 
 from __future__ import annotations
 
-from collections.abc import Awaitable, Callable
+import logging
+from collections.abc import Callable
 
 from telegram import Update
 from telegram.ext import (
@@ -37,9 +38,18 @@ CANCEL_TEXT = (
 )
 PLAN_COMMAND_TURN = "Let's plan this week's dinners and lunches."
 HISTORY_COMMAND_TURN = "What have I cooked in past weeks?"
+AGENT_FAILURE_TEXT = (
+    "I hit a problem generating that — nothing was saved. "
+    "Try again, or /cancel to start over."
+)
+EMPTY_HISTORY_TEXT = (
+    "There are no past weeks yet — history starts once you accept your "
+    "first plan. Tell me your dinner and lunch counts to plan one."
+)
 
 SessionFactory = Callable[[int], Session]
-SendMessage = Callable[..., Awaitable[object]]
+
+logger = logging.getLogger(__name__)
 
 
 class BotHandlers:
@@ -78,6 +88,9 @@ class BotHandlers:
         chat_id = await self._authorized_chat_id(update, context)
         if chat_id is None:
             return
+        if not self.session_for(chat_id).repo.has_any_plans():
+            await context.bot.send_message(chat_id, EMPTY_HISTORY_TEXT)
+            return
         await self._run_turn(chat_id, context, HISTORY_COMMAND_TURN)
 
     async def on_cancel(
@@ -103,8 +116,15 @@ class BotHandlers:
     ) -> None:
         session = self.session_for(chat_id)
         ack_text = PLAN_ACK_TEXT if looks_like_plan_request(text) else None
-        async with WorkingIndicator(context.bot, chat_id, ack_text=ack_text):
-            outcome = await session.handle_message(text)
+        try:
+            async with WorkingIndicator(context.bot, chat_id, ack_text=ack_text):
+                outcome = await session.handle_message(text)
+        except Exception:
+            # Session state is kept so the turn can simply be retried;
+            # nothing reaches SQLite outside a completed accept_plan.
+            logger.exception("agent turn failed for chat %s", chat_id)
+            await context.bot.send_message(chat_id, AGENT_FAILURE_TEXT)
+            return
         if outcome.reply_text:
             await context.bot.send_message(chat_id, outcome.reply_text)
         if outcome.newly_staged_plan is not None:

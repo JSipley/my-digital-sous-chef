@@ -159,12 +159,12 @@ Single project per plan.md: `src/sous_chef/` and `tests/` at repository root.
 
 **Purpose**: Edge-case coverage, error states, performance validation, docs, and final verification
 
-- [ ] T049 Integration tests for the spec Edge Cases section (dinner count outside 3–4 re-prompted; zero lunches noted; >7 lunches rejected; vegan protein adaptation explained; relaxed-window announcement; serving change after acceptance recalculates; abandoned session leaves no rows; skipped check-in defaults to cooked; unsatisfiable constraints name the failed constraint; web-search failure falls back to own knowledge) in `tests/integration/test_edge_cases.py`
-- [ ] T050 Implement transport error states per contracts/telegram-bot.md in `src/sous_chef/bot/app.py`: agent/API failure replies "I hit a problem generating that — nothing was saved…" with session state retained for retry; Telegram delivery failures retried without duplicate side effects (accept_plan idempotent per week upsert); `/history` empty-state message for first-ever use
-- [ ] T051 [P] Add live-API smoke tests marked `live` (excluded by default): end-to-end plan generation and draft-plan latency < 30 s (`-k draft_latency`, SC-007) in `tests/integration/test_live_smoke.py`
-- [ ] T052 [P] Add performance budget assertions for non-LLM paths (grocery merge, plan validation, history queries each < 200 ms per constitution Principle IV) in `tests/unit/test_performance_budgets.py`
-- [ ] T053 [P] Write README.md with setup, environment, test, and run instructions distilled from `specs/001-weekly-dinner-planner/quickstart.md`
-- [ ] T054 Code cleanup pass: `ruff check` and `ruff format --check` zero warnings, `mypy src/` clean, no dead code or speculative abstractions (constitution Principle I)
+- [X] T049 Integration tests for the spec Edge Cases section (dinner count outside 3–4 re-prompted; zero lunches noted; >7 lunches rejected; vegan protein adaptation explained; relaxed-window announcement; serving change after acceptance recalculates; abandoned session leaves no rows; skipped check-in defaults to cooked; unsatisfiable constraints name the failed constraint; web-search failure falls back to own knowledge) in `tests/integration/test_edge_cases.py`
+- [X] T050 Implement transport error states per contracts/telegram-bot.md in `src/sous_chef/bot/app.py`: agent/API failure replies "I hit a problem generating that — nothing was saved…" with session state retained for retry; Telegram delivery failures retried without duplicate side effects (accept_plan idempotent per week upsert); `/history` empty-state message for first-ever use
+- [X] T051 [P] Add live-API smoke tests marked `live` (excluded by default): end-to-end plan generation and draft-plan latency < 30 s (`-k draft_latency`, SC-007) in `tests/integration/test_live_smoke.py`
+- [X] T052 [P] Add performance budget assertions for non-LLM paths (grocery merge, plan validation, history queries each < 200 ms per constitution Principle IV) in `tests/unit/test_performance_budgets.py`
+- [X] T053 [P] Write README.md with setup, environment, test, and run instructions distilled from `specs/001-weekly-dinner-planner/quickstart.md`
+- [X] T054 Code cleanup pass: `ruff check` and `ruff format --check` zero warnings, `mypy src/` clean, no dead code or speculative abstractions (constitution Principle I)
 - [ ] T055 Run the quickstart.md manual end-to-end validation (all 6 walkthrough steps against the live bot) and record results in `specs/001-weekly-dinner-planner/quickstart.md` checklist notes
 
 ---
