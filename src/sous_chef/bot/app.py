@@ -20,7 +20,7 @@ from telegram.ext import (
 
 from sous_chef.agent.session import Session
 from sous_chef.bot.ack import PLAN_ACK_TEXT, WorkingIndicator, looks_like_plan_request
-from sous_chef.bot.formatting import render_plan
+from sous_chef.bot.formatting import render_grocery_list, render_plan
 
 PRIVATE_BOT_TEXT = "This is a private bot."
 WELCOME_TEXT = (
@@ -113,6 +113,13 @@ class BotHandlers:
                 render_plan(outcome.newly_staged_plan),
                 parse_mode="MarkdownV2",
             )
+        if outcome.newly_accepted is not None:
+            chunks = render_grocery_list(
+                outcome.newly_accepted.grocery,
+                outcome.newly_accepted.plan.weekly_budget_usd,
+            )
+            for chunk in chunks:
+                await context.bot.send_message(chat_id, chunk, parse_mode="MarkdownV2")
 
     async def _authorized_chat_id(
         self, update: Update, context: ContextTypes.DEFAULT_TYPE

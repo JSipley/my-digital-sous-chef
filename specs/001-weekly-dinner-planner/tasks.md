@@ -93,18 +93,18 @@ Single project per plan.md: `src/sous_chef/` and `tests/` at repository root.
 
 ### Tests for User Story 2 (MANDATORY — write first, observe FAIL) ⚠️
 
-- [ ] T027 [P] [US2] Contract test pinning the generated `accept_plan` tool schema and result shape (grocery_list items/total/budget_delta, `meals_logged`; errors `no_staged_draft`, `week_mismatch`, `week_already_final`) against `specs/001-weekly-dinner-planner/contracts/agent-tools.md` in `tests/contract/test_tool_schemas.py`
-- [ ] T028 [P] [US2] Unit tests for grocery merging — name normalization (casefold, trim, simple-plural singularize), unit-family conversion (mass g/kg/oz/lb; volume ml/l/tsp/tbsp/cup; count), unmergeable units rendered as compound quantity ("2 cups + 1 can"), each normalized ingredient exactly once (SC-003), batch-meal full-coverage scaling — in `tests/unit/test_grocery_merge.py`
-- [ ] T029 [P] [US2] Unit tests for bill totaling — sum of item price estimates, empty/zero-price boundaries, totals computed not generated — in `tests/unit/test_bill_math.py`
-- [ ] T030 [P] [US2] Integration tests for US2 acceptance scenarios 1–4 (flat merged list on accept; quantities reflect serving sizes incl. batch lunch coverage; bill accompanies list; swap after acceptance regenerates list and bill) in `tests/integration/test_story2_grocery.py`
+- [X] T027 [P] [US2] Contract test pinning the generated `accept_plan` tool schema and result shape (grocery_list items/total/budget_delta, `meals_logged`; errors `no_staged_draft`, `week_mismatch`, `week_already_final`) against `specs/001-weekly-dinner-planner/contracts/agent-tools.md` in `tests/contract/test_tool_schemas.py`
+- [X] T028 [P] [US2] Unit tests for grocery merging — name normalization (casefold, trim, simple-plural singularize), unit-family conversion (mass g/kg/oz/lb; volume ml/l/tsp/tbsp/cup; count), unmergeable units rendered as compound quantity ("2 cups + 1 can"), each normalized ingredient exactly once (SC-003), batch-meal full-coverage scaling — in `tests/unit/test_grocery_merge.py`
+- [X] T029 [P] [US2] Unit tests for bill totaling — sum of item price estimates, empty/zero-price boundaries, totals computed not generated — in `tests/unit/test_bill_math.py`
+- [X] T030 [P] [US2] Integration tests for US2 acceptance scenarios 1–4 (flat merged list on accept; quantities reflect serving sizes incl. batch lunch coverage; bill accompanies list; swap after acceptance regenerates list and bill) in `tests/integration/test_story2_grocery.py`
 
 ### Implementation for User Story 2
 
-- [ ] T031 [P] [US2] Implement deterministic grocery merge and bill totaling (rules from T028/T029; returns GroceryList with `estimated_total_usd` and optional `budget_delta_usd`) in `src/sous_chef/services/grocery.py`
-- [ ] T032 [US2] Implement plan persistence in `src/sous_chef/services/history_repo.py`: upsert accepted plan on `week_id` (plans row with plan_json/grocery_json/timestamps + meals rows with flags and technique), superseded intra-week versions overwritten (FR-022)
-- [ ] T033 [US2] Implement `accept_plan` client tool: verify staged draft matches `week_id`, compute grocery list via `services/grocery.py`, persist via `history_repo`, return final artifacts, in `src/sous_chef/agent/tools.py` (depends on T031, T032); wire real grocery/bill preview into `propose_plan`'s result (replacing T022 stub)
-- [ ] T034 [US2] Implement grocery-list MarkdownV2 message in `src/sous_chef/bot/formatting.py`: separate message, one item per line `• name — quantity (est. $x.xx)`, final `Estimated bill: $XX.XX` line, items/totals verbatim from `accept_plan` result, 4096-char splits at line boundaries never mid-item
-- [ ] T035 [US2] Wire post-acceptance edits in `src/sous_chef/agent/session.py`: meal swap or serving change re-enters `propose_plan` → `accept_plan`, upserts the same week and re-presents regenerated artifacts (FR-015, FR-022)
+- [X] T031 [P] [US2] Implement deterministic grocery merge and bill totaling (rules from T028/T029; returns GroceryList with `estimated_total_usd` and optional `budget_delta_usd`) in `src/sous_chef/services/grocery.py`
+- [X] T032 [US2] Implement plan persistence in `src/sous_chef/services/history_repo.py`: upsert accepted plan on `week_id` (plans row with plan_json/grocery_json/timestamps + meals rows with flags and technique), superseded intra-week versions overwritten (FR-022)
+- [X] T033 [US2] Implement `accept_plan` client tool: verify staged draft matches `week_id`, compute grocery list via `services/grocery.py`, persist via `history_repo`, return final artifacts, in `src/sous_chef/agent/tools.py` (depends on T031, T032); wire real grocery/bill preview into `propose_plan`'s result (replacing T022 stub)
+- [X] T034 [US2] Implement grocery-list MarkdownV2 message in `src/sous_chef/bot/formatting.py`: separate message, one item per line `• name — quantity (est. $x.xx)`, final `Estimated bill: $XX.XX` line, items/totals verbatim from `accept_plan` result, 4096-char splits at line boundaries never mid-item
+- [X] T035 [US2] Wire post-acceptance edits in `src/sous_chef/agent/session.py`: meal swap or serving change re-enters `propose_plan` → `accept_plan`, upserts the same week and re-presents regenerated artifacts (FR-015, FR-022)
 
 **Checkpoint**: User Stories 1 AND 2 work — accepted plans persist and yield deterministic grocery list + bill
 

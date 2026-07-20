@@ -23,6 +23,7 @@ def main() -> None:
             repo=repo,
             system_prompt=SYSTEM_PROMPT,
             tool_factory=build_tools,
+            tz=settings.tz,
         )
 
     handlers = BotHandlers(

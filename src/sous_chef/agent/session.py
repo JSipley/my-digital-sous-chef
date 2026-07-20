@@ -9,14 +9,17 @@ from __future__ import annotations
 
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
+from datetime import datetime, tzinfo
 from typing import Any
 
 from anthropic.lib.tools import BetaAsyncFunctionTool
 
 from sous_chef.agent.client import MessageHistory, Transport
+from sous_chef.models.grocery import GroceryList
 from sous_chef.models.history import CheckinResult
 from sous_chef.models.plan import WeeklyPlan
 from sous_chef.services.history_repo import HistoryRepo
+from sous_chef.services.weeks import week_id_for
 
 
 @dataclass
@@ -36,11 +39,20 @@ class SessionState:
 
 
 @dataclass(frozen=True)
+class AcceptedArtifacts:
+    """The final artifacts produced by accept_plan for one acceptance."""
+
+    plan: WeeklyPlan
+    grocery: GroceryList
+
+
+@dataclass(frozen=True)
 class TurnOutcome:
     """What the bot should deliver after one conversational turn."""
 
     reply_text: str
     newly_staged_plan: WeeklyPlan | None
+    newly_accepted: AcceptedArtifacts | None = None
 
 
 ToolFactory = Callable[["Session"], Sequence[BetaAsyncFunctionTool[Any]]]
@@ -61,25 +73,43 @@ class Session:
         repo: HistoryRepo,
         system_prompt: str,
         tool_factory: ToolFactory = _no_tools,
+        tz: tzinfo | None = None,
+        now: Callable[[], datetime] | None = None,
     ) -> None:
         self.state = SessionState(chat_id=chat_id)
         self.repo = repo
+        self.last_acceptance: AcceptedArtifacts | None = None
+        resolved_tz = tz if tz is not None else datetime.now().astimezone().tzinfo
+        assert resolved_tz is not None  # astimezone() always attaches a tzinfo
+        self.tz: tzinfo = resolved_tz
+        self._now = now if now is not None else lambda: datetime.now(self.tz)
         self._transport = transport
         self._system_prompt = system_prompt
         self._tools = tool_factory(self)
 
+    def current_moment(self) -> datetime:
+        return self._now()
+
+    def current_week_id(self) -> str:
+        return week_id_for(self._now(), self.tz)
+
     async def handle_message(self, text: str) -> TurnOutcome:
         self.state.messages.append({"role": "user", "content": text})
         draft_before = self.state.staged_draft
+        acceptance_before = self.last_acceptance
         result = await self._transport.run_turn(
             system=self._system_prompt,
             tools=self._tools,
             messages=self.state.messages,
         )
         draft_after = self.state.staged_draft
+        acceptance_after = self.last_acceptance
         return TurnOutcome(
             reply_text=result.text,
             newly_staged_plan=draft_after if draft_after is not draft_before else None,
+            newly_accepted=(
+                acceptance_after if acceptance_after is not acceptance_before else None
+            ),
         )
 
     def stage_draft(self, plan: WeeklyPlan) -> None:
@@ -90,3 +120,7 @@ class Session:
         self.state.diet_type = plan.diet_type
         self.state.default_servings = plan.default_servings
         self.state.weekly_budget_usd = plan.weekly_budget_usd
+
+    def record_acceptance(self, plan: WeeklyPlan, grocery: GroceryList) -> None:
+        """Record the artifacts accept_plan persisted, for bot delivery."""
+        self.last_acceptance = AcceptedArtifacts(plan=plan, grocery=grocery)

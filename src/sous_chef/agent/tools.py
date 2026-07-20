@@ -11,10 +11,12 @@ import json
 from typing import TYPE_CHECKING, Any
 
 from anthropic.lib.tools import BetaAsyncFunctionTool, beta_async_tool
-from pydantic import ValidationError
+from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
-from sous_chef.models.plan import WeeklyPlan, normalize_dish_name
+from sous_chef.models.plan import PlanStatus, WeeklyPlan
+from sous_chef.services.grocery import build_grocery_list
 from sous_chef.services.plan_validator import validate_plan
+from sous_chef.services.weeks import week_has_ended
 
 if TYPE_CHECKING:
     from sous_chef.agent.session import Session
@@ -27,6 +29,19 @@ PROPOSE_PLAN_DESCRIPTION = (
     "fit can be checked before presenting the plan. Call this for every plan "
     "revision, including single-meal swaps and preference changes."
 )
+
+ACCEPT_PLAN_DESCRIPTION = (
+    "Persist the currently staged draft as the week's plan (upsert on "
+    "week_id — an accepted plan edited mid-week is re-proposed and "
+    "re-accepted). Returns the final grocery list and estimated bill for "
+    "presentation; render them verbatim, never altering items or totals."
+)
+
+
+class AcceptPlanInput(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    week_id: str = Field(description="Must match the staged draft's week_id.")
 
 
 def build_tools(session: Session) -> list[BetaAsyncFunctionTool[Any]]:
@@ -45,15 +60,53 @@ def build_tools(session: Session) -> list[BetaAsyncFunctionTool[Any]]:
                 [{"code": error.code, "message": error.message} for error in errors]
             )
         session.stage_draft(plan)
-        bill = _estimated_bill(plan)
-        budget = plan.weekly_budget_usd
+        preview = build_grocery_list(plan)
         return json.dumps(
             {
                 "ok": True,
                 "staged": True,
-                "estimated_bill_usd": bill,
-                "budget_delta_usd": None if budget is None else round(bill - budget, 2),
-                "grocery_item_count": _distinct_ingredient_count(plan),
+                "estimated_bill_usd": preview.estimated_total_usd,
+                "budget_delta_usd": preview.budget_delta_usd,
+                "grocery_item_count": len(preview.items),
+            }
+        )
+
+    async def accept_plan(**payload: Any) -> str:
+        data = AcceptPlanInput.model_validate(payload)
+        draft = session.state.staged_draft
+        if draft is None:
+            return _failure(
+                "no_staged_draft",
+                "no draft plan is staged this session; call propose_plan first",
+            )
+        if data.week_id != draft.week_id:
+            return _failure(
+                "week_mismatch",
+                f"the staged draft is for {draft.week_id}, not {data.week_id}",
+            )
+        moment = session.current_moment()
+        if session.repo.plan_status(data.week_id) == "final" or week_has_ended(
+            data.week_id, session.tz, moment
+        ):
+            return _failure(
+                "week_already_final",
+                f"week {data.week_id} has ended; its plan is final and "
+                "cannot be edited",
+            )
+        grocery = build_grocery_list(draft)
+        accepted = draft.model_copy(
+            update={"status": PlanStatus.ACCEPTED, "accepted_at": moment}
+        )
+        meals_logged = session.repo.save_accepted_plan(
+            accepted, grocery, accepted_at=moment
+        )
+        session.record_acceptance(accepted, grocery)
+        return json.dumps(
+            {
+                "ok": True,
+                "week_id": accepted.week_id,
+                "grocery_list": grocery.model_dump(),
+                "meals_logged": meals_logged,
             }
         )
 
@@ -64,12 +117,22 @@ def build_tools(session: Session) -> list[BetaAsyncFunctionTool[Any]]:
             description=PROPOSE_PLAN_DESCRIPTION,
             input_schema=WeeklyPlan,
             strict=True,
-        )
+        ),
+        beta_async_tool(
+            accept_plan,
+            name="accept_plan",
+            description=ACCEPT_PLAN_DESCRIPTION,
+            input_schema=AcceptPlanInput,
+        ),
     ]
 
 
 def _rejection(errors: list[dict[str, str]]) -> str:
     return json.dumps({"ok": False, "staged": False, "errors": errors})
+
+
+def _failure(code: str, message: str) -> str:
+    return json.dumps({"ok": False, "errors": [{"code": code, "message": message}]})
 
 
 def _format_validation_error(exc: ValidationError) -> str:
@@ -78,24 +141,3 @@ def _format_validation_error(exc: ValidationError) -> str:
         location = ".".join(str(piece) for piece in error["loc"])
         parts.append(f"{location}: {error['msg']}")
     return "; ".join(parts)
-
-
-def _estimated_bill(plan: WeeklyPlan) -> float:
-    return round(
-        sum(
-            ingredient.estimated_price_usd
-            for meal in plan.meals
-            for ingredient in meal.ingredients
-        ),
-        2,
-    )
-
-
-def _distinct_ingredient_count(plan: WeeklyPlan) -> int:
-    return len(
-        {
-            normalize_dish_name(ingredient.name)
-            for meal in plan.meals
-            for ingredient in meal.ingredients
-        }
-    )
