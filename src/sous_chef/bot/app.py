@@ -1,0 +1,165 @@
+"""Telegram transport per contracts/telegram-bot.md.
+
+Long polling, single-chat allowlist, command handlers, delivery of the
+agent's replies, and the user-visible error states (FR-028).
+"""
+
+from __future__ import annotations
+
+import logging
+from collections.abc import Callable
+
+from telegram import Update
+from telegram.ext import (
+    Application,
+    ApplicationBuilder,
+    CommandHandler,
+    ContextTypes,
+    MessageHandler,
+    filters,
+)
+
+from sous_chef.agent.session import Session
+from sous_chef.bot.ack import PLAN_ACK_TEXT, WorkingIndicator, looks_like_plan_request
+from sous_chef.bot.formatting import render_grocery_list, render_plan
+
+PRIVATE_BOT_TEXT = "This is a private bot."
+WELCOME_TEXT = (
+    "Hi! I'm your digital sous chef. Each week, tell me how many dinners (3-4) "
+    "and how many lunches you want to cook, and I'll put together a plan of "
+    "healthy, high-protein meals — including one big-batch dish that covers your "
+    "lunches and one stretch meal that teaches you a new technique. You can swap "
+    "meals, set a budget, or change preferences at any point, and when you accept "
+    "the plan you'll get a grocery list with an estimated bill. "
+    "Just tell me your dinner and lunch counts to begin."
+)
+CANCEL_TEXT = (
+    "Session abandoned — nothing was saved. Send a message any time to start fresh."
+)
+PLAN_COMMAND_TURN = "Let's plan this week's dinners and lunches."
+HISTORY_COMMAND_TURN = "What have I cooked in past weeks?"
+AGENT_FAILURE_TEXT = (
+    "I hit a problem generating that — nothing was saved. "
+    "Try again, or /cancel to start over."
+)
+EMPTY_HISTORY_TEXT = (
+    "There are no past weeks yet — history starts once you accept your "
+    "first plan. Tell me your dinner and lunch counts to plan one."
+)
+
+SessionFactory = Callable[[int], Session]
+
+logger = logging.getLogger(__name__)
+
+
+class BotHandlers:
+    """Update handlers, decoupled from the Application for testability."""
+
+    def __init__(
+        self, *, allowed_chat_id: int, session_factory: SessionFactory
+    ) -> None:
+        self._allowed_chat_id = allowed_chat_id
+        self._session_factory = session_factory
+        self.sessions: dict[int, Session] = {}
+
+    def session_for(self, chat_id: int) -> Session:
+        if chat_id not in self.sessions:
+            self.sessions[chat_id] = self._session_factory(chat_id)
+        return self.sessions[chat_id]
+
+    async def on_start(
+        self, update: Update, context: ContextTypes.DEFAULT_TYPE
+    ) -> None:
+        chat_id = await self._authorized_chat_id(update, context)
+        if chat_id is None:
+            return
+        self.session_for(chat_id)
+        await context.bot.send_message(chat_id, WELCOME_TEXT)
+
+    async def on_plan(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+        chat_id = await self._authorized_chat_id(update, context)
+        if chat_id is None:
+            return
+        await self._run_turn(chat_id, context, PLAN_COMMAND_TURN)
+
+    async def on_history(
+        self, update: Update, context: ContextTypes.DEFAULT_TYPE
+    ) -> None:
+        chat_id = await self._authorized_chat_id(update, context)
+        if chat_id is None:
+            return
+        if not self.session_for(chat_id).repo.has_any_plans():
+            await context.bot.send_message(chat_id, EMPTY_HISTORY_TEXT)
+            return
+        await self._run_turn(chat_id, context, HISTORY_COMMAND_TURN)
+
+    async def on_cancel(
+        self, update: Update, context: ContextTypes.DEFAULT_TYPE
+    ) -> None:
+        chat_id = await self._authorized_chat_id(update, context)
+        if chat_id is None:
+            return
+        self.sessions.pop(chat_id, None)
+        await context.bot.send_message(chat_id, CANCEL_TEXT)
+
+    async def on_text(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+        chat_id = await self._authorized_chat_id(update, context)
+        if chat_id is None:
+            return
+        message = update.effective_message
+        if message is None or message.text is None:
+            return
+        await self._run_turn(chat_id, context, message.text)
+
+    async def _run_turn(
+        self, chat_id: int, context: ContextTypes.DEFAULT_TYPE, text: str
+    ) -> None:
+        session = self.session_for(chat_id)
+        ack_text = PLAN_ACK_TEXT if looks_like_plan_request(text) else None
+        try:
+            async with WorkingIndicator(context.bot, chat_id, ack_text=ack_text):
+                outcome = await session.handle_message(text)
+        except Exception:
+            # Session state is kept so the turn can simply be retried;
+            # nothing reaches SQLite outside a completed accept_plan.
+            logger.exception("agent turn failed for chat %s", chat_id)
+            await context.bot.send_message(chat_id, AGENT_FAILURE_TEXT)
+            return
+        if outcome.reply_text:
+            await context.bot.send_message(chat_id, outcome.reply_text)
+        if outcome.newly_staged_plan is not None:
+            await context.bot.send_message(
+                chat_id,
+                render_plan(outcome.newly_staged_plan),
+                parse_mode="MarkdownV2",
+            )
+        if outcome.newly_accepted is not None:
+            chunks = render_grocery_list(
+                outcome.newly_accepted.grocery,
+                outcome.newly_accepted.plan.weekly_budget_usd,
+            )
+            for chunk in chunks:
+                await context.bot.send_message(chat_id, chunk, parse_mode="MarkdownV2")
+
+    async def _authorized_chat_id(
+        self, update: Update, context: ContextTypes.DEFAULT_TYPE
+    ) -> int | None:
+        chat = update.effective_chat
+        if chat is None:
+            return None
+        if chat.id != self._allowed_chat_id:
+            await context.bot.send_message(chat.id, PRIVATE_BOT_TEXT)
+            return None
+        return chat.id
+
+
+def build_application(token: str, handlers: BotHandlers) -> Application:
+    application = ApplicationBuilder().token(token).build()
+    application.add_handler(CommandHandler("start", handlers.on_start))
+    application.add_handler(CommandHandler("plan", handlers.on_plan))
+    application.add_handler(CommandHandler("history", handlers.on_history))
+    application.add_handler(CommandHandler("cancel", handlers.on_cancel))
+    application.add_handler(
+        MessageHandler(filters.TEXT & ~filters.COMMAND, handlers.on_text)
+    )
+    return application
