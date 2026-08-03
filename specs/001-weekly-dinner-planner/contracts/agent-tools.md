@@ -2,7 +2,7 @@
 
 **Feature**: `001-weekly-dinner-planner` | **Date**: 2026-07-18
 
-The conversation loop exposes exactly five tools to the model. Four are client tools
+The conversation loop exposes exactly seven tools to the model. Six are client tools
 implemented in `agent/tools.py` (wired to `services/`); one is the Anthropic
 server-side web-search tool. Contract tests (`tests/contract/test_tool_schemas.py`)
 assert that the schemas generated from the implementation match this document and
@@ -185,9 +185,16 @@ the final artifacts for presentation.
     "estimated_total_usd": 74.5,
     "budget_delta_usd": null
   },
-  "meals_logged": 4
+  "meals_logged": 4,
+  "instructions_needed": ["Braised short ribs", "Miso cod"]
 }
 ```
+
+`instructions_needed` lists, in plan order, the display names of every accepted meal
+with no `source_url` — the worklist for `save_meal_instructions` (FR-010a). It is the
+only signal that makes the "recipe link *or* authored instructions, never neither"
+guarantee actionable: `propose_plan` cannot enforce it, because a draft meal with no
+`source_url` is indistinguishable from one whose steps are coming at acceptance.
 
 Errors: `no_staged_draft` (nothing proposed this session), `week_mismatch`,
 `week_already_final` (attempting to edit a past week).
@@ -197,7 +204,92 @@ the agent renders it for the phone but must not alter items or totals.
 
 ---
 
-## 5. `web_search` (server-side)
+## 5. `save_meal_instructions` (client)
+
+Stores authored cooking steps for one meal of an accepted week (FR-010a/010b), so the
+cookbook can return them later.
+
+**Input schema**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "week_id": { "type": "string", "description": "The accepted week the meal belongs to." },
+    "meal_name": { "type": "string", "description": "The meal's name as it appears in the plan." },
+    "steps": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "The cooking steps in order, one string per step, unnumbered. Steps only — never restate ingredients."
+    }
+  },
+  "required": ["week_id", "meal_name", "steps"]
+}
+```
+
+**Result**: `{"ok": true, "week_id": "2026-W31", "meal_name": "Braised short ribs"}` —
+`meal_name` echoes the plan's display name, since the lookup normalizes. Errors:
+`unknown_week`, `unknown_meal_name`.
+
+Idempotent: re-saving overwrites. **The week's status is irrelevant** — steps stay
+writable after a week goes `final`, which is what lets the cookbook author them on
+demand for earlier weeks. Do not mirror `accept_plan`'s `week_already_final` guard
+here.
+
+---
+
+## 6. `get_meal_instructions` (client)
+
+Reads a meal's stored steps plus the context needed to present them (FR-010b).
+
+**Input schema**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "meal_name": { "type": "string", "description": "The dish to look up." },
+    "week_id": {
+      "type": ["string", "null"],
+      "description": "The week to read from. Omit to resolve the most recent week containing this dish."
+    }
+  },
+  "required": ["meal_name"]
+}
+```
+
+**Result**
+
+```json
+{
+  "ok": true,
+  "week_id": "2026-W31",
+  "meal_name": "Chicken chili",
+  "instructions": "Brown the chicken over medium heat.\nAdd the tomatoes and simmer.",
+  "ingredients": [
+    { "name": "ground chicken", "quantity": 1.0, "unit": "lb", "estimated_price_usd": 6.0 }
+  ],
+  "source_url": null
+}
+```
+
+`ingredients` come from the meal on the week's stored `plan_json`, never from the
+`meals` row — they are not duplicated into the instructions text.
+
+**`instructions: null` is a success, not an error**: the meal exists but has no steps
+yet, and the agent is expected to author them and call `save_meal_instructions` with
+the `week_id` returned here. A dish that appears in no week is `ok: false` with
+`unknown_meal_name`. Collapsing the two would break the unusable-link path (FR-010c).
+
+Without `week_id`, resolution is a policy rather than a key lookup: the same dish
+cooked in two weeks can carry different steps, so the most recent week containing it
+wins.
+
+---
+
+## 7. `web_search` (server-side)
 
 Declared as `{"type": "web_search_20260209", "name": "web_search", "max_uses": 5}` in
 the tool list. Executed on Anthropic's infrastructure — no client implementation.
@@ -219,3 +311,7 @@ unavailability.
   must call `get_meal_history` before its first proposal of a session and must run
   the cooked check-in (via `record_cooked_checkin`) before curating when
   `pending_checkin_week_id` is non-null (FR-021).
+- After every successful `accept_plan`, the agent must call `save_meal_instructions`
+  once per name in `instructions_needed` (FR-010a). The steps do not go in the chat
+  message — the plan message stays scannable and the steps surface from the cookbook
+  when the user is ready to cook.

@@ -69,7 +69,7 @@ A single dish in a plan.
 | `servings` | int | Per-cooking-night servings (FR-014); defaults to plan `default_servings` |
 | `batch` | BatchDetails \| None | Non-null on exactly one meal per plan |
 | `stretch` | StretchDetails \| None | Non-null on exactly one (different) meal per plan |
-| `source_url` | str \| None | Set when based on a web recipe (FR-010) |
+| `source_url` | str \| None | Set when based on a web recipe (FR-010); when null, the meal gets authored instructions instead (FR-010a) |
 | `user_requested_repeat` | bool | True only when the user explicitly asked for this past meal (FR-023/024) |
 | `ingredients` | list[Ingredient] | Non-empty; quantities scaled to this meal's full coverage |
 
@@ -182,6 +182,7 @@ CREATE TABLE meals (
     technique       TEXT,
     cooked_status   TEXT NOT NULL DEFAULT 'planned'
                     CHECK (cooked_status IN ('planned', 'cooked', 'skipped')),
+    instructions    TEXT,                   -- authored cooking steps, newline-separated
     PRIMARY KEY (week_id, normalized_name)
 );
 
@@ -196,3 +197,23 @@ Key queries owned by `history_repo.py`:
 - **Recall**: meals by `week_id` ("what did I cook two weeks ago?"), meal lookup by
   normalized name for "put that chili back" (FR-024).
 - **Pending check-in**: most recent `final` week having any `planned` rows (FR-021).
+- **Cookbook**: the week's `plan_json` (row order, names, ingredients, `source_url`)
+  joined to its `instructions` by `normalized_name` (FR-010a/026a). Rows come from
+  `plan_json`, never from a `meal_name`-ordered query — the two orderings differ.
+- **Week navigation**: nearest `plans.week_id` before/after a given week (FR-026a).
+
+`instructions` notes:
+- Nullable. Null means either "this meal has a recipe link instead" or "steps were
+  never authored"; the two are told apart by `source_url` on the meal in `plan_json`.
+- Written after acceptance for every meal with no `source_url`, and on demand for any
+  meal the user asks about — including one whose link turned out to be unusable
+  (FR-010c), which then has both.
+- Writable regardless of the week's `status`: a `final` week's steps can still be
+  authored, which is what makes the cookbook work for earlier weeks.
+- Steps only — ingredients live on `plan_json` and are never duplicated here.
+- Carried forward across a mid-week re-acceptance for every meal whose
+  `normalized_name` survives; `save_accepted_plan` replaces the week's meal rows
+  wholesale, so this is explicit, not incidental.
+
+**Schema change note**: `instructions` was added after the initial release with no
+migration path — an existing `sous_chef.db` must be deleted and rebuilt.

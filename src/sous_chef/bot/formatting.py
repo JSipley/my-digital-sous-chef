@@ -50,6 +50,72 @@ def render_grocery_list(
     return _split_at_lines(lines)
 
 
+def render_instructions(meal: Meal, instructions: str) -> list[str]:
+    """One meal's cooking instructions: ingredients first, then numbered steps.
+
+    Ingredients come from the stored plan — they are never duplicated into
+    the saved instructions text, which holds the steps alone. Split at line
+    boundaries so a long recipe never breaks mid-step.
+    """
+    lines = [f"*{escape(f'📝 {meal.name}')}*", "", f"*{escape('Ingredients')}*"]
+    lines.extend(
+        escape(f"  • {_format_amount(i.quantity)} {i.unit} {i.name}")
+        for i in meal.ingredients
+    )
+    steps = [step for step in instructions.splitlines() if step.strip()]
+    if steps:
+        lines.extend(["", f"*{escape('Steps')}*"])
+        lines.extend(
+            escape(f"  {number}. {step.strip()}")
+            for number, step in enumerate(steps, start=1)
+        )
+    return _split_at_lines(lines)
+
+
+def render_cookbook(
+    week_id: str,
+    plan: WeeklyPlan,
+    instructions_by_name: dict[str, str],
+    *,
+    is_current_week: bool = False,
+) -> str:
+    """One row per meal, in plan order, in one of three states.
+
+    Rows and callback indices both come from `plan.meals`, so the button at
+    index i always resolves to the row rendered at index i.
+    """
+    heading = f"this week ({week_id})" if is_current_week else week_id
+    lines = [f"*{escape(f'📖 Your cookbook — {heading}')}*", ""]
+    for meal in plan.meals:
+        if meal.normalized_name in instructions_by_name:
+            # Steps win the marker: a meal keeps its link too, but the
+            # button is the thing to tap.
+            state = "📝 steps"
+            if meal.source_url is not None:
+                state += f" · 🔗 {meal.source_url}"
+        elif meal.source_url is not None:
+            state = f"🔗 recipe: {meal.source_url}"
+        else:
+            state = "⏳ tap to write steps"
+        lines.append(escape(f"  {meal.name} — {state}"))
+    return "\n".join(lines)
+
+
+def render_cookbook_empty_week(week_id: str, *, is_current_week: bool = False) -> str:
+    """A week with no accepted plan: header, explanation, nav still offered."""
+    heading = f"this week ({week_id})" if is_current_week else week_id
+    return "\n".join(
+        [
+            f"*{escape(f'📖 Your cookbook — {heading}')}*",
+            "",
+            escape(
+                "  Nothing accepted for this week yet — the cookbook fills in "
+                "when you accept a plan."
+            ),
+        ]
+    )
+
+
 def _render_grocery_item(item: GroceryItem) -> str:
     quantity = " + ".join(
         f"{_format_amount(q.amount)} {q.unit}" for q in item.quantities
@@ -97,5 +163,5 @@ def _render_meal(meal: Meal) -> str:
     lines.append(escape(f"🍽 {meal.servings} {serving_word}"))
     lines.append(escape(f"🥩 {meal.primary_protein}"))
     if meal.source_url is not None:
-        lines.append(escape(f"🔗 {meal.source_url}"))
+        lines.append(escape(f"🔗 Recipe: {meal.source_url}"))
     return "\n".join(lines)

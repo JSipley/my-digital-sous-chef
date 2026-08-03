@@ -29,6 +29,15 @@ class CheckinError(Exception):
         self.message = message
 
 
+class InstructionsError(Exception):
+    """Cooking instructions that cannot be saved (contracts/agent-tools.md)."""
+
+    def __init__(self, code: str, message: str) -> None:
+        super().__init__(message)
+        self.code = code
+        self.message = message
+
+
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS plans (
     week_id      TEXT PRIMARY KEY,
@@ -48,6 +57,7 @@ CREATE TABLE IF NOT EXISTS meals (
     technique       TEXT,
     cooked_status   TEXT NOT NULL DEFAULT 'planned'
                     CHECK (cooked_status IN ('planned', 'cooked', 'skipped')),
+    instructions    TEXT,
     PRIMARY KEY (week_id, normalized_name)
 );
 
@@ -83,9 +93,12 @@ class HistoryRepo:
 
         Superseded intra-week versions are overwritten; the first
         acceptance timestamp is kept, updated_at reflects the latest.
+        Saved cooking instructions survive a mid-week re-acceptance for
+        every meal whose normalized name is still in the plan.
         Returns the number of meal rows logged.
         """
         timestamp = accepted_at.isoformat()
+        kept_instructions = self.instructions_for_week(plan.week_id)
         with self.connection:
             self.connection.execute(
                 """
@@ -113,8 +126,8 @@ class HistoryRepo:
                 """
                 INSERT INTO meals
                     (week_id, meal_name, normalized_name, is_batch, is_stretch,
-                     technique, cooked_status)
-                VALUES (?, ?, ?, ?, ?, ?, 'planned')
+                     technique, cooked_status, instructions)
+                VALUES (?, ?, ?, ?, ?, ?, 'planned', ?)
                 """,
                 [
                     (
@@ -124,6 +137,7 @@ class HistoryRepo:
                         int(meal.batch is not None),
                         int(meal.stretch is not None),
                         meal.stretch.technique if meal.stretch is not None else None,
+                        kept_instructions.get(meal.normalized_name),
                     )
                     for meal in plan.meals
                 ],
@@ -192,6 +206,82 @@ class HistoryRepo:
             (normalize_dish_name(name),),
         ).fetchall()
         return [_meal_entry(row) for row in rows]
+
+    def plan_for_week(self, week_id: str) -> WeeklyPlan | None:
+        """The accepted plan as stored, or None when the week has no plan.
+
+        The cookbook renders from this — `plan_json` is the only place the
+        plan's own meal order, ingredients, and source URLs survive.
+        """
+        row = self.connection.execute(
+            "SELECT plan_json FROM plans WHERE week_id = ?", (week_id,)
+        ).fetchone()
+        return None if row is None else WeeklyPlan.model_validate_json(row["plan_json"])
+
+    def instructions_for_week(self, week_id: str) -> dict[str, str]:
+        """Stored cooking steps for one week, keyed by normalized name."""
+        rows = self.connection.execute(
+            "SELECT normalized_name, instructions FROM meals "
+            "WHERE week_id = ? AND instructions IS NOT NULL",
+            (week_id,),
+        ).fetchall()
+        return {str(row["normalized_name"]): str(row["instructions"]) for row in rows}
+
+    def save_meal_instructions(
+        self, week_id: str, meal_name: str, instructions: str
+    ) -> str:
+        """Write cooking steps for one meal; returns its display name.
+
+        Idempotent — re-saving overwrites. A week's status is irrelevant:
+        steps stay writable after the week goes final, which is what makes
+        the cookbook's on-demand generation work for earlier weeks.
+        """
+        if self.plan_status(week_id) is None:
+            raise InstructionsError(
+                "unknown_week", f"no plan exists for week {week_id}"
+            )
+        normalized = normalize_dish_name(meal_name)
+        row = self.connection.execute(
+            "SELECT meal_name FROM meals WHERE week_id = ? AND normalized_name = ?",
+            (week_id, normalized),
+        ).fetchone()
+        if row is None:
+            raise InstructionsError(
+                "unknown_meal_name", f"week {week_id} has no meal named: {meal_name}"
+            )
+        with self.connection:
+            self.connection.execute(
+                "UPDATE meals SET instructions = ? "
+                "WHERE week_id = ? AND normalized_name = ?",
+                (instructions, week_id, normalized),
+            )
+        return str(row["meal_name"])
+
+    def meal_instructions(self, week_id: str, meal_name: str) -> str | None:
+        """Stored steps for one meal, or None when none were saved."""
+        row = self.connection.execute(
+            "SELECT instructions FROM meals WHERE week_id = ? AND normalized_name = ?",
+            (week_id, normalize_dish_name(meal_name)),
+        ).fetchone()
+        if row is None or row["instructions"] is None:
+            return None
+        return str(row["instructions"])
+
+    def previous_accepted_week(self, week_id: str) -> str | None:
+        """The nearest week before `week_id` that has a plan (cookbook nav)."""
+        row = self.connection.execute(
+            "SELECT week_id FROM plans WHERE week_id < ? ORDER BY week_id DESC LIMIT 1",
+            (week_id,),
+        ).fetchone()
+        return None if row is None else str(row["week_id"])
+
+    def next_accepted_week(self, week_id: str) -> str | None:
+        """The nearest week after `week_id` that has a plan (cookbook nav)."""
+        row = self.connection.execute(
+            "SELECT week_id FROM plans WHERE week_id > ? ORDER BY week_id ASC LIMIT 1",
+            (week_id,),
+        ).fetchone()
+        return None if row is None else str(row["week_id"])
 
     def pending_checkin_week_id(self) -> str | None:
         """The most recent final week still holding planned rows (FR-021)."""
