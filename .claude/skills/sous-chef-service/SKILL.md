@@ -29,7 +29,7 @@ Two steps, both required:
    ```
    Monitor(
      command: "tail -F .run/sous-chef.log | grep -E --line-buffered \
-       'Traceback|ERROR|CRITICAL|Exception|agent turn failed|instructions turn failed'",
+       'Traceback|ERROR|CRITICAL|Exception|turn failed'",
      description: "sous_chef errors",
      persistent: true,
    )
@@ -104,9 +104,9 @@ memory only, so a restart discards any in-flight conversation by design.
 |---|---|---|
 | `ConfigError` | missing or malformed env var (`SOUS_CHEF_*`, `ANTHROPIC_API_KEY`) — raised by `Settings.from_env()` before anything starts | no |
 | `telegram.error.InvalidToken` | bad `SOUS_CHEF_TELEGRAM_TOKEN`, fails inside `run_polling()` | no |
-| `telegram.error.BadRequest` in `on_callback` / `_send_meal_instructions` | MarkdownV2 escaping miss in a meal name; user sees a dead button | yes |
-| `sqlite3.OperationalError: no such column` | schema drift in `sous_chef.db` (the cookbook `instructions` column has no migration) | yes |
-| `agent turn failed` / `instructions turn failed` | caught agent error; the user got `AGENT_FAILURE_TEXT` and can retry | yes |
+| `telegram.error.BadRequest` from a `send_message` / `edit_message_text` call | MarkdownV2 escaping miss in a meal name; the user sees nothing or a dead button | yes |
+| `sqlite3.OperationalError: no such column` | schema drift in `sous_chef.db` (added columns ship without migrations) | yes |
+| `agent turn failed` | caught agent error; the user got `AGENT_FAILURE_TEXT` and can retry | yes |
 | nothing at all, for many minutes, mid-turn | `AnthropicTransport` sets no `timeout`/`max_retries` (`agent/client.py`), so one stalled turn can occupy ~30 min | yes |
 
 ## Stopping
