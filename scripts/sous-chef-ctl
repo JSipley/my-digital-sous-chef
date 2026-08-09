@@ -1,0 +1,157 @@
+#!/usr/bin/env bash
+# Process control for the sous_chef Telegram bot.
+#
+# `run` is meant to be launched as a Claude background task; it stays in the
+# foreground and owns the process group. Everything else is a one-shot query or
+# a signal. See .claude/skills/sous-chef-service/SKILL.md for the operating
+# procedure that drives this script.
+
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$ROOT" # --env-file .env is relative
+
+RUN_DIR="$ROOT/.run"
+PGID_FILE="$RUN_DIR/sous-chef.pgid"
+LOG="$RUN_DIR/sous-chef.log"
+LOG_PREV="$RUN_DIR/sous-chef.log.1"
+STOPPING="$RUN_DIR/stopping"
+RESTARTS="$RUN_DIR/sous-chef.restarts"
+
+PATTERN='python -m sous_chef'
+
+die() {
+	echo "sous-chef-ctl: $*" >&2
+	exit 1
+}
+
+# Echoes the live PGID and returns 0, or returns 1 if the service is not up.
+# A recorded PGID alone is not enough — PGIDs get recycled — so the group must
+# still contain an actual sous_chef process.
+running_pgid() {
+	local pgid
+	[[ -f $PGID_FILE ]] || return 1
+	pgid="$(cat "$PGID_FILE")"
+	[[ $pgid =~ ^[0-9]+$ ]] || return 1
+	pgrep -g "$pgid" -f "$PATTERN" >/dev/null 2>&1 || return 1
+	echo "$pgid"
+}
+
+cmd_run() {
+	local pgid
+	if pgid="$(running_pgid)"; then
+		die "already running (pgid $pgid). Two pollers on one bot token cause 409 getUpdates conflicts."
+	fi
+
+	mkdir -p "$RUN_DIR"
+	rm -f "$STOPPING" "$PGID_FILE"
+	# Roll rather than truncate: the previous run's output is the diagnosis.
+	if [[ -f $LOG ]]; then
+		mv -f "$LOG" "$LOG_PREV"
+	fi
+
+	ps -o pgid= -p $$ | tr -d ' ' >"$PGID_FILE"
+
+	# PYTHONUNBUFFERED: stdout is a file here, not a TTY, so Python would
+	# block-buffer and the crash output would arrive long after the crash.
+	exec env PYTHONUNBUFFERED=1 \
+		uv run --env-file .env python -m sous_chef >>"$LOG" 2>&1
+}
+
+# Signal the whole group: uv is the parent and python is the child, so
+# signaling the bare PID orphans the bot, which keeps polling invisibly.
+cmd_stop() {
+	local pgid step
+	if ! pgid="$(running_pgid)"; then
+		echo "not running"
+		rm -f "$PGID_FILE"
+		return 0
+	fi
+
+	if [[ $pgid == "$(ps -o pgid= -p $$ | tr -d ' ')" ]]; then
+		die "refusing to signal my own process group ($pgid)"
+	fi
+
+	mkdir -p "$RUN_DIR"
+	# Tells the skill that the resulting task exit was intentional.
+	date -u +%Y-%m-%dT%H:%M:%SZ >"$STOPPING"
+
+	# Mirrors the manual Ctrl-C twice, then escalates.
+	for step in INT INT TERM KILL; do
+		kill -"$step" -- "-$pgid" 2>/dev/null || true
+		echo "sent SIG$step to group $pgid"
+		for _ in {1..10}; do
+			running_pgid >/dev/null || {
+				rm -f "$PGID_FILE"
+				echo "stopped"
+				return 0
+			}
+			sleep 0.5
+		done
+	done
+
+	die "group $pgid survived SIGKILL"
+}
+
+cmd_restart() {
+	cmd_stop
+	echo
+	echo "Stopped. Relaunch with:  ./scripts/sous-chef-ctl run"
+	echo "(must be started as a background task — this script cannot create one)"
+}
+
+cmd_status() {
+	local pgid
+	if pgid="$(running_pgid)"; then
+		echo "running   pgid=$pgid"
+		pgrep -g "$pgid" -a -f "$PATTERN" | sed 's/^/  pid /'
+	else
+		echo "stopped"
+	fi
+	echo "log       $LOG"
+	if [[ -f $LOG_PREV ]]; then
+		echo "previous  $LOG_PREV"
+	fi
+	if [[ -f $STOPPING ]]; then
+		echo "stopping  sentinel present (exit was intentional)"
+	fi
+	if [[ -f $RESTARTS ]]; then
+		echo "restarts  $(wc -l <"$RESTARTS" | tr -d ' ') recorded, last $(tail -n 1 "$RESTARTS")"
+	fi
+	return 0
+}
+
+cmd_logs() {
+	local n=80
+	if [[ ${1-} == "-n" ]]; then
+		n="${2:?-n needs a count}"
+	fi
+	[[ -f $LOG ]] || die "no log yet at $LOG"
+	tail -n "$n" "$LOG"
+}
+
+# Last traceback block, falling back to the rolled log — after a startup crash
+# plus restart, the crash output has already moved to .log.1.
+cmd_errors() {
+	local f line
+	for f in "$LOG" "$LOG_PREV"; do
+		[[ -f $f ]] || continue
+		line="$(grep -n 'Traceback (most recent call last):' "$f" | tail -n 1 | cut -d: -f1)"
+		if [[ -n $line ]]; then
+			echo "=== $f (from line $line) ==="
+			tail -n "+$line" "$f"
+			return 0
+		fi
+	done
+	echo "no traceback found in $LOG or $LOG_PREV"
+}
+
+case "${1-}" in
+run | start) shift && cmd_run "$@" ;;
+stop) shift && cmd_stop "$@" ;;
+restart) shift && cmd_restart "$@" ;;
+status) shift && cmd_status "$@" ;;
+logs) shift && cmd_logs "$@" ;;
+errors) shift && cmd_errors "$@" ;;
+*) die "usage: sous-chef-ctl {run|stop|restart|status|logs [-n N]|errors}" ;;
+esac

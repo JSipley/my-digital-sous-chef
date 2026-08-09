@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import logging
+import os
+
 from sous_chef.agent.client import AnthropicTransport
 from sous_chef.agent.prompt import SYSTEM_PROMPT
 from sous_chef.agent.session import Session
@@ -12,6 +15,17 @@ from sous_chef.services.history_repo import HistoryRepo
 
 
 def main() -> None:
+    # Without this the root logger is unconfigured: our own logger.exception
+    # calls fall back to logging.lastResort (no timestamp, no level, no logger
+    # name) and python-telegram-bot's diagnostics are dropped entirely.
+    logging.basicConfig(
+        level=os.environ.get("SOUS_CHEF_LOG_LEVEL", "INFO"),
+        format="%(asctime)s %(levelname)-8s %(name)s: %(message)s",
+    )
+    # httpx logs full request URLs at INFO, and Telegram's API embeds the bot
+    # token in every path — that would write the token to the log on every poll.
+    logging.getLogger("httpx").setLevel(logging.WARNING)
+
     settings = Settings.from_env()
     repo = HistoryRepo(settings.db_path)
     transport = AnthropicTransport(settings)
