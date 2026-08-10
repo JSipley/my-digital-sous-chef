@@ -65,6 +65,10 @@ The process connects by long polling — no inbound ports, no webhook. Stop with
 Ctrl-C; in-flight (unaccepted) session state is discarded by design, so an
 abandoned session never touches the database.
 
+> **Schema change:** the cookbook added an `instructions` column to the `meals`
+> table, and there is no migration. If you have a `sous_chef.db` from before it,
+> delete the file — it will be recreated on your next accepted plan.
+
 ### Commands
 
 | Command | Behavior |
@@ -72,8 +76,18 @@ abandoned session never touches the database.
 | `/start` | Welcome and how to begin |
 | `/plan` | Begin (or resume) this week's planning conversation |
 | `/history` | Summarize past weeks from history |
+| `/cookbook` | Browse this week's meals and pull up their recipes |
 | `/cancel` | Abandon the current session — nothing is saved |
 | any text | Conversational turn to the planning agent |
+
+### Cookbook
+
+Every meal of an accepted plan is actionable: either it links out to a recipe
+found on the web, or the agent writes step-by-step instructions and saves them
+right after you accept the plan. `/cookbook` lists the week's meals — tap one to
+get its ingredients and numbered steps, or walk back through earlier weeks with
+`←`. You can also just ask in chat ("how do I make the chili?"), including when
+a recipe link turns out to be paywalled — the steps get written and saved.
 
 ## Project layout
 

@@ -14,9 +14,9 @@ from anthropic.lib.tools import BetaAsyncFunctionTool, beta_async_tool
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from sous_chef.models.history import CheckinResult
-from sous_chef.models.plan import PlanStatus, WeeklyPlan
+from sous_chef.models.plan import PlanStatus, WeeklyPlan, normalize_dish_name
 from sous_chef.services.grocery import build_grocery_list
-from sous_chef.services.history_repo import CheckinError
+from sous_chef.services.history_repo import CheckinError, InstructionsError
 from sous_chef.services.plan_validator import validate_plan
 from sous_chef.services.weeks import week_has_ended
 
@@ -63,6 +63,23 @@ RECORD_COOKED_CHECKIN_DESCRIPTION = (
     "check-in — every planned meal is then marked cooked."
 )
 
+SAVE_MEAL_INSTRUCTIONS_DESCRIPTION = (
+    "Save step-by-step cooking instructions for one meal of an accepted "
+    "week, so they can be pulled up later from the cookbook. Write the "
+    "steps only — ingredients are already stored with the plan and must "
+    "not be repeated here. Call this after accept_plan for every name in "
+    "its instructions_needed list, and whenever you write steps for a meal "
+    "on request. Re-saving overwrites."
+)
+
+GET_MEAL_INSTRUCTIONS_DESCRIPTION = (
+    "Read a meal's stored cooking instructions plus its ingredients and "
+    "recipe source_url. Omit week_id to resolve the most recent week "
+    "containing that dish. When instructions comes back null the meal "
+    "exists but has no steps yet — write them and call "
+    "save_meal_instructions with the week_id returned here."
+)
+
 
 class AcceptPlanInput(BaseModel):
     model_config = ConfigDict(extra="forbid")
@@ -97,6 +114,32 @@ class RecordCookedCheckinInput(BaseModel):
         description=(
             "True when the user skipped or could not recall the check-in; "
             "every planned meal is then marked cooked."
+        ),
+    )
+
+
+class SaveMealInstructionsInput(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    week_id: str = Field(description="The accepted week the meal belongs to.")
+    meal_name: str = Field(description="The meal's name as it appears in the plan.")
+    steps: list[str] = Field(
+        description=(
+            "The cooking steps in order, one string per step, unnumbered. "
+            "Steps only — never restate ingredients."
+        )
+    )
+
+
+class GetMealInstructionsInput(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    meal_name: str = Field(description="The dish to look up.")
+    week_id: str | None = Field(
+        default=None,
+        description=(
+            "The week to read from. Omit to resolve the most recent week "
+            "containing this dish."
         ),
     )
 
@@ -188,6 +231,11 @@ def build_tools(session: Session) -> list[BetaAsyncFunctionTool[Any]]:
                 "week_id": accepted.week_id,
                 "grocery_list": grocery.model_dump(),
                 "meals_logged": meals_logged,
+                # The worklist for save_meal_instructions: every meal with no
+                # recipe link to send the user to.
+                "instructions_needed": [
+                    meal.name for meal in accepted.meals if meal.source_url is None
+                ],
             }
         )
 
@@ -232,6 +280,53 @@ def build_tools(session: Session) -> list[BetaAsyncFunctionTool[Any]]:
             }
         )
 
+    async def save_meal_instructions(**payload: Any) -> str:
+        data = SaveMealInstructionsInput.model_validate(payload)
+        try:
+            meal_name = session.repo.save_meal_instructions(
+                data.week_id, data.meal_name, "\n".join(data.steps)
+            )
+        except InstructionsError as exc:
+            return _failure(exc.code, exc.message)
+        return json.dumps({"ok": True, "week_id": data.week_id, "meal_name": meal_name})
+
+    async def get_meal_instructions(**payload: Any) -> str:
+        data = GetMealInstructionsInput.model_validate(payload)
+        week_id = data.week_id
+        if week_id is None:
+            # No week given: the same dish in two weeks can carry different
+            # steps, so take the most recent (already week_id DESC).
+            matches = session.repo.find_meals_by_normalized_name(data.meal_name)
+            if not matches:
+                return _failure(
+                    "unknown_meal_name",
+                    f"no week contains a meal named: {data.meal_name}",
+                )
+            week_id = matches[0].week_id
+        plan = session.repo.plan_for_week(week_id)
+        if plan is None:
+            return _failure("unknown_week", f"no plan exists for week {week_id}")
+        normalized = normalize_dish_name(data.meal_name)
+        meal = next((m for m in plan.meals if m.normalized_name == normalized), None)
+        if meal is None:
+            return _failure(
+                "unknown_meal_name",
+                f"week {week_id} has no meal named: {data.meal_name}",
+            )
+        return json.dumps(
+            {
+                "ok": True,
+                "week_id": week_id,
+                "meal_name": meal.name,
+                # null means "no steps saved yet" — write them and save.
+                "instructions": session.repo.meal_instructions(week_id, meal.name),
+                "ingredients": [
+                    ingredient.model_dump() for ingredient in meal.ingredients
+                ],
+                "source_url": meal.source_url,
+            }
+        )
+
     return [
         beta_async_tool(
             propose_plan,
@@ -257,6 +352,18 @@ def build_tools(session: Session) -> list[BetaAsyncFunctionTool[Any]]:
             name="record_cooked_checkin",
             description=RECORD_COOKED_CHECKIN_DESCRIPTION,
             input_schema=RecordCookedCheckinInput,
+        ),
+        beta_async_tool(
+            save_meal_instructions,
+            name="save_meal_instructions",
+            description=SAVE_MEAL_INSTRUCTIONS_DESCRIPTION,
+            input_schema=SaveMealInstructionsInput,
+        ),
+        beta_async_tool(
+            get_meal_instructions,
+            name="get_meal_instructions",
+            description=GET_MEAL_INSTRUCTIONS_DESCRIPTION,
+            input_schema=GetMealInstructionsInput,
         ),
     ]
 

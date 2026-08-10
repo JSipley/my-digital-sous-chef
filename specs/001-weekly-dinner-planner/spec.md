@@ -123,7 +123,10 @@ Every accepted plan is logged to the user's meal history. At the start of the ne
 - **FR-007**: All curated meals MUST be healthy and high-protein in an athlete-oriented sense, described qualitatively (primary protein source identified per meal) without formal macro or calorie tracking.
 - **FR-008**: When curation involves trade-offs, the system MUST resolve them in this priority order: nutrition first, then budget, then prep time, then skill-building — and MUST be able to explain a meal choice in those terms when asked.
 - **FR-009**: When the user rejects a meal, the system MUST replace only that meal, and the replacement MUST satisfy all session constraints (requested meal counts, stated preferences such as diet type or servings, nutrition standard, weekly budget if set, repetition rules).
-- **FR-010**: The system MUST be able to search the web for recipes, both to source candidate meals during curation and when the user asks for a specific dish; when a proposed meal is based on a recipe found on the web, the system MUST share the recipe's source alongside the meal.
+- **FR-010**: The system MUST be able to search the web for recipes, both to source candidate meals during curation and when the user asks for a specific dish; when a proposed meal is based on a recipe found on the web, the system MUST share the recipe's source alongside the meal, labelled as a recipe.
+- **FR-010a**: Every meal of an accepted plan MUST be actionable by exactly one of two paths and never neither: it carries a web recipe source (FR-010), or the system MUST author and store step-by-step cooking instructions for it. Acceptance MUST return the list of meals lacking a recipe source so the instructions are written rather than left to chance, and a meal that still ends up with neither MUST produce instructions on demand when the user asks for them.
+- **FR-010b**: Stored cooking instructions MUST be retrievable both conversationally ("how do I make the chili?") and from a dedicated browsing surface (FR-026a). Instructions MUST be presented with the meal's ingredients and quantities first, then numbered steps. Ingredients are read from the stored plan and MUST NOT be duplicated into the stored instructions.
+- **FR-010c**: When the user reports a recipe source as unusable (paywalled, dead, unhelpful), the system MUST author and store instructions for that meal, which then carries both a source and stored instructions.
 
 **Plan Artifacts**
 
@@ -152,6 +155,7 @@ Every accepted plan is logged to the user's meal history. At the start of the ne
 **Conversation Experience**
 
 - **FR-026**: The system MUST deliver the conversation and all plan artifacts as messages through a bot on an existing messaging platform, formatted so the grocery list and plan are readable on a phone (including while shopping).
+- **FR-026a**: The system MUST provide a cookbook surface that lists an accepted week's meals, one row per meal, showing for each whether it has a recipe source, stored instructions, or neither, and offering a direct way to pull up the instructions. The surface MUST open on the current week and MUST allow walking back through earlier weeks that have accepted plans. Cookbook rows and the actions attached to them MUST derive from the same stored plan, so an action always returns the meal on the row it belongs to.
 - **FR-027**: While generating a plan or artifacts, the system MUST acknowledge the request immediately and indicate that work is in progress rather than remaining silent.
 - **FR-028**: When the system cannot satisfy all constraints simultaneously, it MUST state which constraint failed and what the user can do next (e.g., relax budget, allow a repeat), never returning an empty or unexplained result.
 

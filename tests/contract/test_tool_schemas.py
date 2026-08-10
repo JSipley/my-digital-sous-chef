@@ -154,6 +154,11 @@ class TestAcceptPlanResultShape:
         assert result["ok"] is True
         assert result["week_id"] == "2026-W30"
         assert result["meals_logged"] == 3
+        assert result["instructions_needed"] == [
+            "Chicken chili",
+            "Seared salmon",
+            "Turkey stir-fry",
+        ], "every meal without a source_url needs instructions, in plan order"
         grocery = result["grocery_list"]
         assert isinstance(grocery["items"], list) and grocery["items"]
         for item in grocery["items"]:
@@ -377,3 +382,177 @@ class TestRecordCookedCheckinResultShape:
         )
         assert again["ok"] is False
         assert [error["code"] for error in again["errors"]] == ["already_recorded"]
+
+
+# The save_meal_instructions input schema from contracts/agent-tools.md.
+SAVE_MEAL_INSTRUCTIONS_CONTRACT_SCHEMA = {
+    "type": "object",
+    "additionalProperties": False,
+    "properties": {
+        "week_id": {"type": "string"},
+        "meal_name": {"type": "string"},
+        "steps": {"type": "array", "items": {"type": "string"}},
+    },
+    "required": ["week_id", "meal_name", "steps"],
+}
+
+# The get_meal_instructions input schema from contracts/agent-tools.md.
+GET_MEAL_INSTRUCTIONS_CONTRACT_SCHEMA = {
+    "type": "object",
+    "additionalProperties": False,
+    "properties": {
+        "meal_name": {"type": "string"},
+        "week_id": {"anyOf": [{"type": "string"}, {"type": "null"}], "default": None},
+    },
+    "required": ["meal_name"],
+}
+
+STEPS = ["Pat the ribs dry and season.", "Sear on all sides until browned."]
+
+
+class TestSaveMealInstructionsSchema:
+    def test_input_schema_matches_contract(self, session: Session) -> None:
+        tool = tool_named(session, "save_meal_instructions")
+        assert canon(tool.to_dict()["input_schema"]) == canon(
+            SAVE_MEAL_INSTRUCTIONS_CONTRACT_SCHEMA
+        )
+
+    def test_has_description(self, session: Session) -> None:
+        assert tool_named(session, "save_meal_instructions").to_dict()["description"]
+
+
+class TestSaveMealInstructionsResultShape:
+    async def test_saves_and_is_idempotent(self, session: Session) -> None:
+        await accept_week(session, "2026-W30")
+        tool = tool_named(session, "save_meal_instructions")
+        payload = {
+            "week_id": "2026-W30",
+            "meal_name": "chicken CHILI",  # normalized before the PK lookup
+            "steps": STEPS,
+        }
+        result = json.loads(await tool.call(payload))
+        assert result["ok"] is True
+        assert result["week_id"] == "2026-W30"
+        assert result["meal_name"] == "Chicken chili", "returns the display name"
+
+        again = json.loads(await tool.call(payload | {"steps": ["Only one step."]}))
+        assert again["ok"] is True
+        assert session.repo.meal_instructions("2026-W30", "Chicken chili") == (
+            "Only one step."
+        ), "re-saving overwrites"
+
+    async def test_unknown_week_error(self, session: Session) -> None:
+        tool = tool_named(session, "save_meal_instructions")
+        result = json.loads(
+            await tool.call(
+                {"week_id": "2020-W01", "meal_name": "Chicken chili", "steps": STEPS}
+            )
+        )
+        assert result["ok"] is False
+        assert [error["code"] for error in result["errors"]] == ["unknown_week"]
+
+    async def test_unknown_meal_name_error(self, session: Session) -> None:
+        await accept_week(session, "2026-W30")
+        tool = tool_named(session, "save_meal_instructions")
+        result = json.loads(
+            await tool.call(
+                {"week_id": "2026-W30", "meal_name": "Beef wellington", "steps": STEPS}
+            )
+        )
+        assert result["ok"] is False
+        assert [error["code"] for error in result["errors"]] == ["unknown_meal_name"]
+
+    async def test_final_week_is_still_writable(self, past_week_session: Any) -> None:
+        """The ⏳ cookbook tap must work for weeks that have already ended."""
+        current, in_w29 = past_week_session
+        await accept_week(in_w29, "2026-W29")
+        current.repo.finalize_weeks_before("2026-W30")
+        assert current.repo.plan_status("2026-W29") == "final"
+
+        result = json.loads(
+            await tool_named(current, "save_meal_instructions").call(
+                {"week_id": "2026-W29", "meal_name": "Chicken chili", "steps": STEPS}
+            )
+        )
+        assert result["ok"] is True, "week status is irrelevant to saving steps"
+
+
+class TestGetMealInstructionsSchema:
+    def test_input_schema_matches_contract(self, session: Session) -> None:
+        tool = tool_named(session, "get_meal_instructions")
+        assert canon(tool.to_dict()["input_schema"]) == canon(
+            GET_MEAL_INSTRUCTIONS_CONTRACT_SCHEMA
+        )
+
+    def test_has_description(self, session: Session) -> None:
+        assert tool_named(session, "get_meal_instructions").to_dict()["description"]
+
+
+class TestGetMealInstructionsResultShape:
+    async def test_returns_steps_ingredients_and_source(self, session: Session) -> None:
+        await accept_week(session, "2026-W30")
+        await tool_named(session, "save_meal_instructions").call(
+            {"week_id": "2026-W30", "meal_name": "Chicken chili", "steps": STEPS}
+        )
+        result = json.loads(
+            await tool_named(session, "get_meal_instructions").call(
+                {"meal_name": "Chicken chili", "week_id": "2026-W30"}
+            )
+        )
+        assert result["ok"] is True
+        assert result["week_id"] == "2026-W30"
+        assert result["meal_name"] == "Chicken chili"
+        assert result["instructions"] == "\n".join(STEPS)
+        assert result["source_url"] is None
+        assert result["ingredients"], "ingredients come from the stored plan"
+        for ingredient in result["ingredients"]:
+            assert set(ingredient) == {
+                "name",
+                "quantity",
+                "unit",
+                "estimated_price_usd",
+            }
+
+    async def test_meal_without_steps_is_ok_with_null_instructions(
+        self, session: Session
+    ) -> None:
+        """Distinct from an unknown meal: the agent writes and saves steps."""
+        await accept_week(session, "2026-W30")
+        result = json.loads(
+            await tool_named(session, "get_meal_instructions").call(
+                {"meal_name": "Chicken chili"}
+            )
+        )
+        assert result["ok"] is True
+        assert result["instructions"] is None
+        assert result["week_id"] == "2026-W30"
+
+    async def test_resolves_most_recent_week_without_week_id(
+        self, past_week_session: Any
+    ) -> None:
+        current, in_w29 = past_week_session
+        await accept_week(in_w29, "2026-W29")
+        await tool_named(in_w29, "save_meal_instructions").call(
+            {"week_id": "2026-W29", "meal_name": "Chicken chili", "steps": ["Old."]}
+        )
+        await accept_week(current, "2026-W30")
+        await tool_named(current, "save_meal_instructions").call(
+            {"week_id": "2026-W30", "meal_name": "Chicken chili", "steps": ["New."]}
+        )
+        result = json.loads(
+            await tool_named(current, "get_meal_instructions").call(
+                {"meal_name": "chicken chili"}
+            )
+        )
+        assert result["week_id"] == "2026-W30"
+        assert result["instructions"] == "New."
+
+    async def test_unknown_meal_name_error(self, session: Session) -> None:
+        await accept_week(session, "2026-W30")
+        result = json.loads(
+            await tool_named(session, "get_meal_instructions").call(
+                {"meal_name": "Beef wellington"}
+            )
+        )
+        assert result["ok"] is False
+        assert [error["code"] for error in result["errors"]] == ["unknown_meal_name"]
