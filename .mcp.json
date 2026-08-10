@@ -6,6 +6,16 @@
       "headers": {
         "Authorization": "Bearer ${GITHUB_MCP_PAT}"
       }
+    },
+    "telegram-mcp": {
+      "command": "uv",
+      "args": [
+        "--directory",
+        "${TELEGRAM_MCP_DIR}",
+        "run",
+        "main.py"
+      ],
+      "_comment": "https://github.com/chigwell/telegram-mcp"
     }
   }
 }

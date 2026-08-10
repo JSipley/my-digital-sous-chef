@@ -23,6 +23,7 @@ coverage/
 # Runtime data
 *.db
 *.log
+.run/
 
 # OS / editors
 .DS_Store
