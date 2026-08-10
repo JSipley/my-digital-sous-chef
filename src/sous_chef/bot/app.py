@@ -297,8 +297,23 @@ class BotHandlers:
         return chat.id
 
 
+async def on_dispatcher_error(
+    update: object, context: ContextTypes.DEFAULT_TYPE
+) -> None:
+    """Log errors from outside a handler (e.g. polling network blips).
+
+    Without this, PTB falls back to "No error handlers are registered,
+    logging exception" — the same log line still fires for these, just
+    through our own logger instead of reading like an unhandled crash.
+    python-telegram-bot's polling retry loop already handles reconnection;
+    this only logs.
+    """
+    logger.error("telegram dispatcher error", exc_info=context.error)
+
+
 def build_application(token: str, handlers: BotHandlers) -> Application:
     application = ApplicationBuilder().token(token).build()
+    application.add_error_handler(on_dispatcher_error)
     application.add_handler(CommandHandler("start", handlers.on_start))
     application.add_handler(CommandHandler("plan", handlers.on_plan))
     application.add_handler(CommandHandler("history", handlers.on_history))

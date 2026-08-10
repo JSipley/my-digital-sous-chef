@@ -11,6 +11,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Any, Protocol, cast
 
+import httpx
 from anthropic import AsyncAnthropic
 from anthropic.lib.tools import BetaAsyncFunctionTool
 from anthropic.types.beta import BetaMessageParam, BetaToolUnionParam
@@ -22,6 +23,14 @@ MessageHistory = list[dict[str, Any]]
 
 MAX_PAUSE_TURN_RESTARTS = 5
 MAX_TOKENS = 8192
+
+# The SDK default read timeout is 10 minutes, and PTB processes updates
+# sequentially — so a connection that goes silent mid-stream (dropped wifi,
+# black-holed route) wedges the one bot chat for up to ~30 min across
+# retries (issue #9), rather than failing into AGENT_FAILURE_TEXT. httpx's
+# read timeout only measures the gap between chunks, not total stream
+# duration, so a lower value is safe for slow-but-alive generations.
+REQUEST_TIMEOUT = httpx.Timeout(60.0, connect=10.0)
 
 SERVER_TOOLS: list[BetaToolUnionParam] = [
     {"type": "web_search_20260209", "name": "web_search", "max_uses": 5},
@@ -51,7 +60,9 @@ class AnthropicTransport:
     """Real Claude API transport: streaming runner, caching, pause_turn restarts."""
 
     def __init__(self, settings: Settings) -> None:
-        self._client = AsyncAnthropic(api_key=settings.anthropic_api_key)
+        self._client = AsyncAnthropic(
+            api_key=settings.anthropic_api_key, timeout=REQUEST_TIMEOUT
+        )
         self._model = settings.model
 
     async def run_turn(

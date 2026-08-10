@@ -107,7 +107,7 @@ memory only, so a restart discards any in-flight conversation by design.
 | `telegram.error.BadRequest` from a `send_message` / `edit_message_text` call | MarkdownV2 escaping miss in a meal name; the user sees nothing or a dead button | yes |
 | `sqlite3.OperationalError: no such column` | schema drift in `sous_chef.db` (added columns ship without migrations) | yes |
 | `agent turn failed` | caught agent error; the user got `AGENT_FAILURE_TEXT` and can retry | yes |
-| nothing at all, for many minutes, mid-turn | `AnthropicTransport` sets no `timeout`/`max_retries` (`agent/client.py`), so one stalled turn can occupy ~30 min | yes |
+| nothing at all, for a couple minutes, mid-turn | a turn's connection went silent (dropped network); `AnthropicTransport` bounds the read timeout to 60s (`agent/client.py`, issue #9 — the SDK default is 10 min, and PTB processes updates sequentially, so a longer stall would wedge the whole bot) | yes |
 
 ## Stopping
 
