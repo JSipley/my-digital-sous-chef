@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(./scripts/sous-chef-ctl:*)",
+      "Bash(scripts/sous-chef-ctl:*)",
+      "Bash(tail -F .run/sous-chef.log:*)",
+      "Bash(test -f .run/stopping:*)",
+      "Bash(rm -f .run/stopping)"
+    ]
+  }
+}
