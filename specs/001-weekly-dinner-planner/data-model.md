@@ -30,8 +30,8 @@ persisted on acceptance.
 | Field | Type | Constraints / Source |
 |---|---|---|
 | `week_id` | str | ISO week, e.g. `2026-W30`; primary identity (R11) |
-| `dinner_count` | int | Required; validator enforces 3–4 (FR-004) |
-| `lunch_count` | int | Required; validator enforces 0–7 (FR-002, edge cases) |
+| `dinner_count` | int | Required; validator enforces 1–7 (FR-004) |
+| `lunch_count` | int | Optional; 0 when the user does not volunteer a count; validator enforces 0–7 (FR-002, edge cases) |
 | `diet_type` | str \| None | Optional preference; None = no restriction (FR-003) |
 | `default_servings` | int | Defaults to 1 (spec assumption) |
 | `weekly_budget_usd` | float \| None | Optional; applies to this week only (FR-016/017) |
@@ -40,10 +40,12 @@ persisted on acceptance.
 | `accepted_at` | datetime \| None | Set on acceptance |
 
 **Validation rules** (deterministic, `plan_validator.py`):
-- `len(meals) == dinner_count`, and `3 <= dinner_count <= 4` (FR-004).
+- `len(meals) == dinner_count`, and `1 <= dinner_count <= 7` (FR-004).
 - `0 <= lunch_count <= 7` (edge cases).
-- Exactly one meal has `batch` details; exactly one *different* meal has `stretch`
-  details (FR-005/006; edge case: with 3 meals, two of the three carry the flags).
+- Exactly one meal has `batch` details. Exactly one *different* meal has `stretch`
+  details when `dinner_count >= 2`; at `dinner_count == 1` exactly zero meals carry
+  `stretch` details, since the single meal is the batch meal (FR-005/006; edge case:
+  with 3 meals, two of the three carry the flags).
 - Batch meal `total_portions == lunch_count + 1` × its per-person serving count
   (FR-005, FR-014); with `lunch_count == 0` the batch meal covers only its dinner
   night (edge case).
@@ -126,7 +128,7 @@ still in `planned` status (FR-021). Result: per-meal `cooked`/`skipped` marks, o
 |---|---|---|
 | `chat_id` | int | Allowlisted single user |
 | `messages` | list | Claude conversation history for this session |
-| `dinner_count` / `lunch_count` | int \| None | Required before curation (FR-002) |
+| `dinner_count` / `lunch_count` | int \| None | `dinner_count` required before curation; `lunch_count` defaults to 0 and is never prompted for (FR-002) |
 | `diet_type`, `default_servings`, `weekly_budget_usd` | optional | Applied mid-session without restart (FR-003, FR-016) |
 | `staged_draft` | WeeklyPlan \| None | Last payload accepted by `propose_plan` |
 | `repetition_relaxed` | bool | Set when the agent announces window relaxation (R10) |

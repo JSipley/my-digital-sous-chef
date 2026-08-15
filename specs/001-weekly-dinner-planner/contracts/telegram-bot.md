@@ -105,5 +105,9 @@ Every user-visible error states what happened and what to do next:
   the *current* week is unaccepted, `/cookbook` still opens on it — headed with the
   current week, saying nothing is accepted for it yet, and offering `←` back to the
   most recent accepted week. It never silently retitles itself to an earlier week.
-- **Zero lunches**: plan message still flags the batch meal, portioned for its dinner
-  night only, and notes the reduced meal-prep benefit (spec edge case).
+- **Zero lunches** (the default week, since lunches are never prompted for): the plan
+  message still flags the batch meal, portioned for its dinner night only, and says so
+  as plain coverage — `🍲 Batch meal — covers 1 dinner night (1 portion)` — not as a
+  shortfall.
+- **One dinner**: the plan message flags the single meal as the batch meal and carries
+  no stretch-meal line; the agent says why (spec edge case).

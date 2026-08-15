@@ -73,11 +73,12 @@ in-flight (unaccepted) session state is discarded by design.
 
 Walk each story in Telegram against the running bot:
 
-1. **First plan (US1, SC-008)** — send `/start`, then "I want to cook 3 dinners and
-   2 lunches this week". Verify: typing indicator/ack appears immediately (SC-007);
-   the proposed plan has exactly 3 dinners, one flagged batch meal stating it covers
-   2 lunches + 1 dinner, one distinct flagged stretch meal with a named technique,
-   and prep time + servings on every meal (SC-002) — with no other input demanded.
+1. **First plan (US1, SC-008)** — send `/start`, then "I want to cook 3 dinners this
+   week". Verify: typing indicator/ack appears immediately (SC-007); the proposed plan
+   has exactly 3 dinners, one flagged batch meal, one distinct flagged stretch meal
+   with a named technique, and prep time + servings on every meal (SC-002) — with no
+   other input demanded, and no question about lunches. Then say "make it 2 lunches
+   too" and verify the batch meal restates its coverage as 2 lunches + 1 dinner.
 2. **Swap (US1 #3)** — reject one meal ("swap the salmon for something else").
    Verify only that meal changes and flags/counts still hold.
 3. **Grocery list & bill (US2)** — accept the plan. Verify a single flat grocery list

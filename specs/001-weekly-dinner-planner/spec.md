@@ -21,18 +21,18 @@
 
 ### User Story 1 - Plan a Week of Dinners and Lunches Conversationally (Priority: P1)
 
-The user starts a planning session and tells the agent how many dinners and how many lunches they want to cook this week — the only required input. They then converse with the agent until they have an accepted plan of healthy, high-protein dinners. The plan always includes exactly one big-batch meal-prep dish, cooked once and portioned to cover every requested lunch of the week plus one dinner night, and exactly one meal flagged as a "stretch" meal that introduces a cooking technique the user has not used before. Remaining nights of the week are left open. The user may volunteer preferences such as diet type or serving counts at any point in the conversation, but is never required to provide them. Each meal shows its estimated prep time and serving size. The user can reject or swap any proposed meal during the conversation before accepting the plan.
+The user starts a planning session and tells the agent how many dinners they want to cook this week — the only required input. Lunches are optional: the agent never asks for a lunch count, and a week where none is volunteered is planned with zero lunches. They then converse with the agent until they have an accepted plan of healthy, high-protein dinners. The plan always includes exactly one big-batch meal-prep dish, cooked once and portioned to cover every requested lunch of the week plus one dinner night, and exactly one meal flagged as a "stretch" meal that introduces a cooking technique the user has not used before — except on a one-dinner week, where the single meal is the batch meal and no stretch meal is planned. Remaining nights of the week are left open. The user may volunteer preferences such as diet type or serving counts at any point in the conversation, but is never required to provide them. Each meal shows its estimated prep time and serving size. The user can reject or swap any proposed meal during the conversation before accepting the plan.
 
 **Why this priority**: This is the product. Without conversational curation of a weekly plan, no other capability has anything to attach to. It alone delivers the core value: a week of home cooking planned in minutes.
 
-**Independent Test**: Can be fully tested by running a first-ever session (no history, no budget), providing only a dinner count and a lunch count, and verifying the accepted plan contains the requested number of dinners with the batch meal (covering all lunches plus one dinner) and stretch meal correctly flagged, plus prep time and serving size on every meal — with no other input demanded.
+**Independent Test**: Can be fully tested by running a first-ever session (no history, no budget), providing only a dinner count, and verifying the accepted plan contains the requested number of dinners with the batch meal (covering all lunches plus one dinner) and stretch meal correctly flagged, plus prep time and serving size on every meal — with no other input demanded.
 
 **Acceptance Scenarios**:
 
-1. **Given** a new planning session, **When** the user states how many dinners and lunches they want to cook this week, **Then** the agent proposes that many dinners — each labeled with estimated prep time and serving size — without requiring any further input.
-2. **Given** a proposed weekly plan, **When** the user reviews it, **Then** exactly one meal is flagged as the big-batch meal-prep dish (stating that it covers all of the week's lunches plus its dinner night) and exactly one different meal is flagged as the stretch meal (with the new technique named).
+1. **Given** a new planning session, **When** the user states how many dinners they want to cook this week, **Then** the agent proposes that many dinners — each labeled with estimated prep time and serving size — without requiring any further input.
+2. **Given** a proposed weekly plan, **When** the user reviews it, **Then** exactly one meal is flagged as the big-batch meal-prep dish (stating that it covers all of the week's lunches plus its dinner night) and exactly one different meal is flagged as the stretch meal (with the new technique named) — unless only one dinner was requested, in which case the single meal is the batch meal and the agent says why there is no stretch meal.
 3. **Given** a proposed plan, **When** the user rejects one meal, **Then** the agent replaces only that meal with an alternative that still satisfies the requested meal counts, any stated preferences, and the healthy/high-protein criteria.
-4. **Given** a session where the user has not yet said how many dinners and lunches they want, **When** the user asks for a plan, **Then** the agent asks for the missing counts before proposing meals.
+4. **Given** a session where the user has not yet said how many dinners they want, **When** the user asks for a plan, **Then** the agent asks for the dinner count before proposing meals — and asks nothing else, including nothing about lunches.
 5. **Given** the user states a diet type or serving count mid-conversation, **When** the plan is next proposed or revised, **Then** every meal reflects the stated preference without the session restarting.
 6. **Given** any proposed meal, **When** the user asks why it was chosen, **Then** the agent explains the choice in terms of the priority order: nutrition first, then budget, then prep time, then skill-building.
 
@@ -94,8 +94,9 @@ Every accepted plan is logged to the user's meal history. At the start of the ne
 
 ### Edge Cases
 
-- User requests fewer than 3 or more than 4 dinners: the agent explains the 3–4 range and asks the user to choose within it (open nights absorb the difference).
-- User requests zero lunches for the week: the batch meal still appears but is portioned for its dinner night only, and the agent notes the reduced meal-prep benefit.
+- User requests fewer than 1 or more than 7 dinners: the agent explains the 1–7 range and asks the user to choose within it (open nights absorb the difference).
+- User requests exactly 1 dinner: the single meal is the batch meal and the plan carries no stretch meal; the agent says why.
+- User does not mention lunches, or asks for zero: the week is planned with zero lunches without the agent asking, and the batch meal still appears, portioned for its dinner night only.
 - User requests more lunches than there are days in the week: the agent explains the limit and asks for a count of 7 or fewer.
 - Diet type makes high-protein harder (e.g., vegan): the agent adapts protein sources to the diet rather than declining, and says how protein is being covered.
 - The batch meal and stretch meal cannot be the same dish; if only 3 meals are planned, two of the three carry the flags.
@@ -115,11 +116,11 @@ Every accepted plan is logged to the user's meal history. At the start of the ne
 **Session & Curation**
 
 - **FR-001**: The system MUST conduct planning as a conversation in which the user can request a plan, ask questions, reject or swap individual meals, and accept the final plan.
-- **FR-002**: The system MUST collect the number of dinners and the number of lunches the user wants to cook for the week at the start of each planning session, prompting for whichever is missing before proposing meals. No other input is required to begin planning.
+- **FR-002**: The system MUST collect the number of dinners the user wants to cook for the week at the start of each planning session, prompting for it before proposing meals. No other input is required to begin planning: the number of lunches MUST default to zero and MUST NOT be prompted for, and a lunch count the user volunteers at any point MUST be honored.
 - **FR-003**: The system MUST accept optional preferences — such as diet type or serving counts — stated at any point in the conversation and apply them to the current plan without restarting the session. When no diet type is stated, meals assume no dietary restriction; when no serving count is stated, each meal defaults to a single serving.
-- **FR-004**: The system MUST curate the user's requested number of dinners per weekly plan, within a range of 3 to 4, leaving the remaining nights of the week open. Lunches are not separately curated dishes; every requested lunch is covered by the batch meal.
+- **FR-004**: The system MUST curate the user's requested number of dinners per weekly plan, within a range of 1 to 7, leaving the remaining nights of the week open. Lunches are not separately curated dishes; every requested lunch is covered by the batch meal.
 - **FR-005**: Each plan MUST include exactly one big-batch meal-prep dish, flagged as such, cooked once and portioned to serve as one of the week's dinners plus every lunch the user requested, with the number of lunches it covers stated.
-- **FR-006**: Each plan MUST include exactly one "stretch" meal, distinct from the batch meal, flagged as such, that introduces a cooking technique not present in the user's cooked meal history, with the technique named. A technique from a planned-but-uncooked stretch meal still counts as new and may be reintroduced.
+- **FR-006**: Each plan of 2 or more dinners MUST include exactly one "stretch" meal, distinct from the batch meal, flagged as such, that introduces a cooking technique not present in the user's cooked meal history, with the technique named. A one-dinner plan MUST carry no stretch meal, since its single meal is the batch meal, and the system MUST say why. A technique from a planned-but-uncooked stretch meal still counts as new and may be reintroduced.
 - **FR-007**: All curated meals MUST be healthy and high-protein in an athlete-oriented sense, described qualitatively (primary protein source identified per meal) without formal macro or calorie tracking.
 - **FR-008**: When curation involves trade-offs, the system MUST resolve them in this priority order: nutrition first, then budget, then prep time, then skill-building — and MUST be able to explain a meal choice in those terms when asked.
 - **FR-009**: When the user rejects a meal, the system MUST replace only that meal, and the replacement MUST satisfy all session constraints (requested meal counts, stated preferences such as diet type or servings, nutrition standard, weekly budget if set, repetition rules).
@@ -166,14 +167,14 @@ Every accepted plan is logged to the user's meal history. At the start of the ne
 - **Grocery List**: The flat, merged list of ingredients for an accepted plan; each entry has an ingredient name and combined quantity; owns the estimated total weekly bill.
 - **Budget**: The user's optional weekly grocery amount, offered at the start of the planning conversation; applies only to the current week's plan and is not carried across weeks.
 - **Meal History**: The chronological log of accepted plans' meals by week, each meal carrying a planned/cooked status set by the next session's check-in; the sole source of "what the user has cooked" for repetition avoidance, stretch-technique novelty, and recall.
-- **Session Configuration**: The per-session required dinner and lunch counts, plus any optional preferences (diet type, serving counts, weekly budget) stated during the conversation.
+- **Session Configuration**: The per-session required dinner count and optional lunch count (zero unless volunteered), plus any optional preferences (diet type, serving counts, weekly budget) stated during the conversation.
 
 ## Success Criteria *(mandatory)*
 
 ### Measurable Outcomes
 
 - **SC-001**: A user can go from starting a session to an accepted plan with grocery list and estimated bill in under 10 minutes of conversation.
-- **SC-002**: 100% of accepted plans contain the requested number of dinners (within the 3–4 range), exactly one flagged batch meal covering every requested lunch plus one dinner night, exactly one flagged stretch meal (distinct from the batch meal), and prep time and serving size on every meal.
+- **SC-002**: 100% of accepted plans contain the requested number of dinners (within the 1–7 range), exactly one flagged batch meal covering every requested lunch plus one dinner night, exactly one flagged stretch meal distinct from the batch meal (zero on a one-dinner plan), and prep time and serving size on every meal.
 - **SC-003**: 100% of generated grocery lists contain every ingredient required by the plan's meals, with no ingredient listed more than once.
 - **SC-004**: Across any 4 consecutive weeks of use, no cooked main dish is re-proposed unless the user requested it or the system announced a window relaxation.
 - **SC-005**: When a weekly budget is set, 90% of accepted plans have an estimated bill at or below it; the remaining cases explicitly state the overage amount.

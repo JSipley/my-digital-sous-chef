@@ -133,12 +133,12 @@ emit:
 
 | Code | Rule |
 |---|---|
-| `dinner_count_out_of_range` | dinner_count not in 3–4 (FR-004) |
+| `dinner_count_out_of_range` | dinner_count not in 1–7 (FR-004) |
 | `lunch_count_out_of_range` | lunch_count not in 0–7 |
 | `meal_count_mismatch` | `len(meals) != dinner_count` |
 | `batch_meal_count` | not exactly one batch meal (FR-005) |
-| `stretch_meal_count` | not exactly one stretch meal (FR-006) |
-| `batch_stretch_same_meal` | batch and stretch flags on the same meal |
+| `stretch_meal_count` | not exactly one stretch meal, or any stretch meal at `dinner_count == 1` (FR-006) |
+| `batch_stretch_same_meal` | batch and stretch flags on the same meal (checked only at `dinner_count >= 2`) |
 | `batch_coverage_mismatch` | `lunches_covered != lunch_count` or `total_portions` wrong (FR-005/014) |
 | `technique_not_new` | stretch technique already in cooked history (FR-006) |
 | `repeated_dish` | normalized name cooked within 4 weeks, no repeat request / relaxation (FR-023); message lists the offending names |
