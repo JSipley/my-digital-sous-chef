@@ -12,7 +12,7 @@ from dataclasses import dataclass
 
 from sous_chef.models.plan import Meal, WeeklyPlan, normalize_dish_name
 
-DINNER_RANGE = range(3, 5)
+DINNER_RANGE = range(1, 8)
 LUNCH_RANGE = range(0, 8)
 
 ERROR_CODES = frozenset(
@@ -113,7 +113,7 @@ def _count_errors(plan: WeeklyPlan) -> list[PlanError]:
         errors.append(
             PlanError(
                 "dinner_count_out_of_range",
-                f"dinner_count must be 3-4, got {plan.dinner_count}",
+                f"dinner_count must be 1-7, got {plan.dinner_count}",
             )
         )
     if plan.lunch_count not in LUNCH_RANGE:
@@ -145,16 +145,26 @@ def _flag_errors(plan: WeeklyPlan) -> list[PlanError]:
                 f"exactly one meal must carry batch details, found {len(batch_meals)}",
             )
         )
-    if len(stretch_meals) != 1:
+    # A one-dinner week has a single meal, so batch and stretch cannot land on
+    # two different dishes: batch wins (it carries the lunch coverage) and the
+    # stretch meal is not planned at all.
+    expected_stretch = 0 if plan.dinner_count == 1 else 1
+    if len(stretch_meals) != expected_stretch:
+        expectation = (
+            "a one-dinner plan carries no stretch details — its single meal is "
+            "the batch meal"
+            if expected_stretch == 0
+            else "exactly one meal must carry stretch details"
+        )
         errors.append(
             PlanError(
                 "stretch_meal_count",
-                "exactly one meal must carry stretch details, found "
-                f"{len(stretch_meals)}",
+                f"{expectation}, found {len(stretch_meals)}",
             )
         )
     if (
-        len(batch_meals) == 1
+        expected_stretch == 1
+        and len(batch_meals) == 1
         and len(stretch_meals) == 1
         and batch_meals[0] is stretch_meals[0]
     ):

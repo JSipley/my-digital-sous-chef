@@ -9,7 +9,7 @@ from __future__ import annotations
 import re
 
 from sous_chef.models.grocery import GroceryItem, GroceryList
-from sous_chef.models.plan import Meal, WeeklyPlan
+from sous_chef.models.plan import BatchDetails, Meal, WeeklyPlan
 
 NIGHTS_PER_WEEK = 7
 TELEGRAM_MESSAGE_LIMIT = 4096
@@ -145,15 +145,25 @@ def _split_at_lines(lines: list[str]) -> list[str]:
     return chunks
 
 
+def _batch_coverage(batch: BatchDetails) -> str:
+    """What the batch meal covers. Zero lunches is the default week, so it
+    reads as coverage, not as a warning about lunches the user never asked for.
+    """
+    portions = f"{batch.total_portions} " + (
+        "portion" if batch.total_portions == 1 else "portions"
+    )
+    if batch.lunches_covered == 0:
+        return f"covers 1 dinner night ({portions})"
+    lunches = f"{batch.lunches_covered} " + (
+        "lunch" if batch.lunches_covered == 1 else "lunches"
+    )
+    return f"covers {lunches} + 1 dinner ({portions})"
+
+
 def _render_meal(meal: Meal) -> str:
     lines = [f"*{escape(meal.name)}*"]
     if meal.batch is not None:
-        lines.append(
-            escape(
-                f"🍲 Batch meal — covers {meal.batch.lunches_covered} lunches "
-                f"+ 1 dinner ({meal.batch.total_portions} portions)"
-            )
-        )
+        lines.append(escape(f"🍲 Batch meal — {_batch_coverage(meal.batch)}"))
     if meal.stretch is not None:
         lines.append(
             escape(f"✨ Stretch meal — new technique: {meal.stretch.technique}")
