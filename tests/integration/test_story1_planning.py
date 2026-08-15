@@ -178,12 +178,12 @@ class TestScenario3SingleMealSwap:
         assert len(transport.tool_calls) == 2
 
 
-class TestScenario4MissingCounts:
-    async def test_missing_counts_prompted_before_proposing(
+class TestScenario4MissingDinnerCount:
+    async def test_missing_dinner_count_prompted_before_proposing(
         self, repo: HistoryRepo
     ) -> None:
         transport = FakeTransport.scripted(
-            [ScriptedText("Happy to! How many dinners (3-4) and how many lunches?")]
+            [ScriptedText("Happy to! How many dinners (1-7) this week?")]
         )
         session = make_session(transport, repo)
         outcome = await session.handle_message("plan my week")
@@ -192,6 +192,23 @@ class TestScenario4MissingCounts:
         assert outcome.newly_staged_plan is None
         assert session.state.staged_draft is None
         assert transport.tool_calls == []
+
+    async def test_dinner_count_alone_plans_without_asking_about_lunches(
+        self, repo: HistoryRepo
+    ) -> None:
+        transport = FakeTransport.scripted(
+            [
+                ScriptedToolCall("propose_plan", plan_payload(lunch_count=0)),
+                ScriptedText("Here's your plan for the week!"),
+            ]
+        )
+        session = make_session(transport, repo)
+        outcome = await session.handle_message("3 dinners this week")
+
+        plan = outcome.newly_staged_plan
+        assert plan is not None, "a dinner count alone is enough to plan"
+        assert plan.dinner_count == 3 and plan.lunch_count == 0
+        assert "lunch" not in outcome.reply_text.lower()
 
 
 class TestScenario5MidSessionPreference:
