@@ -21,7 +21,7 @@ from telegram.ext import (
 )
 
 from sous_chef.agent.session import Session
-from sous_chef.bot.ack import PLAN_ACK_TEXT, WorkingIndicator, looks_like_plan_request
+from sous_chef.bot.ack import WorkingIndicator
 from sous_chef.bot.cookbook import MealTap, WeekNav, build_keyboard, decode
 from sous_chef.bot.formatting import (
     render_cookbook,
@@ -259,9 +259,8 @@ class BotHandlers:
         self, chat_id: int, context: ContextTypes.DEFAULT_TYPE, text: str
     ) -> None:
         session = self.session_for(chat_id)
-        ack_text = PLAN_ACK_TEXT if looks_like_plan_request(text) else None
         try:
-            async with WorkingIndicator(context.bot, chat_id, ack_text=ack_text):
+            async with WorkingIndicator(context.bot, chat_id):
                 outcome = await session.handle_message(text)
         except Exception:
             # Session state is kept so the turn can simply be retried;

@@ -58,10 +58,8 @@ states:
 
 - On every authorized incoming update the bot sends `sendChatAction("typing")`
   **before** invoking the agent; the action is refreshed every ~4 s until the reply is
-  sent (Telegram expires it after ~5 s).
-- For turns that trigger plan generation, a short acknowledgment message is sent
-  immediately, before the agent call ("On it — pulling your plan together…").
-- Contractual ordering asserted by test: `ack/typing → agent call → reply`.
+  sent (Telegram expires it after ~5 s). No chat message is sent ahead of the reply.
+- Contractual ordering asserted by test: `typing → agent call → reply`.
 
 ## Message formatting (FR-026)
 
@@ -99,7 +97,7 @@ Every user-visible error states what happened and what to do next:
 
 ## Loading / empty states
 
-- **Loading**: typing indicator + ack message (above).
+- **Loading**: typing indicator (above); no separate ack message.
 - **Empty history** (first-ever session): no check-in prompt, no repetition rule;
   `/history` explains there are no past weeks yet.
 - **Empty cookbook**: with no accepted plans at all, `/cookbook` explains that the
