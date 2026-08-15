@@ -221,12 +221,11 @@ finalizer (extra moving part; lazy evaluation is sufficient).
 ## R12. Responsiveness strategy (SC-007, FR-027)
 
 **Decision**: On every incoming message the bot immediately (before any LLM call)
-sends `sendChatAction("typing")` and, for plan-generation requests, a short ack
-message ("On it — pulling your plan together…"). The typing action is refreshed every
-~4 s while the agent works. Draft-plan latency is managed by streaming, prompt caching
-(stable system prompt + tool definitions first, volatile content last), and effort
-tuning. An integration test asserts ack-before-agent-call ordering; a marked live
-test measures the 30 s draft budget.
+sends `sendChatAction("typing")`. The typing action is refreshed every ~4 s while
+the agent works; no separate acknowledgment chat message is sent. Draft-plan latency
+is managed by streaming, prompt caching (stable system prompt + tool definitions
+first, volatile content last), and effort tuning. An integration test asserts
+typing-before-agent-call ordering; a marked live test measures the 30 s draft budget.
 
 **Rationale**: Telegram's typing indicator expires after ~5 s, so refresh is needed
 for long generations. Caching the large stable prefix cuts both latency and cost on

@@ -2,7 +2,8 @@
 
 Drives the real session loop, tools, validators, and rendering through the
 scripted fake LLM transport — zero network. Also asserts the SC-007
-contractual ordering: typing/ack are emitted BEFORE the agent call.
+contractual ordering: the typing indicator is emitted BEFORE the agent call,
+with no chat message ahead of it.
 """
 
 import json
@@ -268,7 +269,9 @@ def fake_update(chat_id: int, text: str) -> Any:
 
 
 class TestBotOrderingAndDelivery:
-    async def test_ack_and_typing_before_agent_call(self, repo: HistoryRepo) -> None:
+    async def test_typing_before_agent_call_no_ack_message(
+        self, repo: HistoryRepo
+    ) -> None:
         events: list[str] = []
         transport = FakeTransport.scripted(
             [ScriptedToolCall("propose_plan", plan_payload()), ScriptedText("Plan!")],
@@ -284,9 +287,10 @@ class TestBotOrderingAndDelivery:
 
         agent_call = events.index("agent_call")
         typing = events.index("chat_action:typing")
-        ack = next(i for i, e in enumerate(events) if e.startswith("message:On it"))
         assert typing < agent_call, "typing indicator must precede the agent call"
-        assert ack < agent_call, "plan-generation ack must precede the agent call"
+        assert not any(e.startswith("message:") for e in events[:agent_call]), (
+            "no chat message should precede the agent call"
+        )
 
         # The rendered plan is delivered as MarkdownV2 after the agent call.
         plan_messages = [
