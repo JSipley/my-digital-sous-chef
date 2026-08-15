@@ -181,6 +181,7 @@ class TestSingleDinnerWeek:
                         ],
                     ),
                 ),
+                ScriptedToolCall("accept_plan", {"week_id": WEEK_ID}),
                 ScriptedText(
                     "One dinner this week, so no stretch meal — the chili is "
                     "your batch meal and covers your 3 lunches."
@@ -188,7 +189,7 @@ class TestSingleDinnerWeek:
             ]
         )
         session = make_session(transport, repo)
-        outcome = await session.handle_message("just 1 dinner and 3 lunches")
+        outcome = await session.handle_message("just 1 dinner and 3 lunches, accept it")
         result = json.loads(transport.tool_calls[0].result)
         assert result["ok"] is True
         plan = outcome.newly_staged_plan
@@ -199,6 +200,42 @@ class TestSingleDinnerWeek:
         rendered = render_plan(plan)
         assert "✨ Stretch meal" not in rendered
         assert "Open nights: 6" in rendered
+        # A stretch-less plan must survive persistence: every other accepted
+        # plan in the suite has one, so this is the only cover for that path.
+        assert outcome.newly_accepted is not None
+        assert outcome.newly_accepted.grocery.items
+        assert repo.cooked_techniques() == []
+        assert [
+            (entry.meal_name, entry.is_batch, entry.is_stretch)
+            for entry in repo.meals_for_week(WEEK_ID)
+        ] == [("Chicken chili", True, False)]
+
+
+class TestFullWeek:
+    async def test_seven_dinners_omit_the_open_nights_line(
+        self, repo: HistoryRepo
+    ) -> None:
+        seven_meals = [
+            meal("Chicken chili", batch={"lunches_covered": 2, "total_portions": 3}),
+            meal("Seared salmon", stretch={"technique": "searing"}),
+            *[meal(f"Weeknight dish {n}") for n in range(5)],
+        ]
+        transport = FakeTransport.scripted(
+            [
+                ScriptedToolCall(
+                    "propose_plan", payload(dinner_count=7, meals=seven_meals)
+                ),
+                ScriptedText("Cooking every night this week!"),
+            ]
+        )
+        session = make_session(transport, repo)
+        outcome = await session.handle_message("7 dinners and 2 lunches")
+        plan = outcome.newly_staged_plan
+        assert plan is not None
+        assert plan.stretch_meal is not None
+        assert plan.batch_meal is not plan.stretch_meal
+        # Nothing to report when the week is full — no "Open nights: 0" line.
+        assert "Open nights" not in render_plan(plan)
 
 
 class TestZeroLunches:

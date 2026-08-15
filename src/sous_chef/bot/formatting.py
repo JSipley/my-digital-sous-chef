@@ -27,7 +27,9 @@ def render_plan(plan: WeeklyPlan) -> str:
     blocks = [f"*{escape(f'Plan for {plan.week_id}')}*"]
     blocks.extend(_render_meal(meal) for meal in plan.meals)
     open_nights = NIGHTS_PER_WEEK - plan.dinner_count
-    blocks.append(escape(f"Open nights: {open_nights}"))
+    # A full week has nothing to report here; the line would only state a zero.
+    if open_nights > 0:
+        blocks.append(escape(f"Open nights: {open_nights}"))
     return "\n\n".join(blocks)
 
 

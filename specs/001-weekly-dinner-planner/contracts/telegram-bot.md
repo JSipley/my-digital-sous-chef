@@ -70,7 +70,7 @@ characters escaped. Phone-readability rules:
   (`🍲 Batch meal — covers 3 lunches + 1 dinner (4 portions)` /
   `✨ Stretch meal — new technique: braising`), then `⏱ prep`, `🍽 servings`,
   `🥩 protein`, and `🔗 source` when a web recipe backs the meal. Open nights listed
-  at the end.
+  at the end, omitted at 7 dinners rather than printed as a zero.
 - **Grocery list message**: sent as its own message so it can be scrolled while
   shopping; one item per line, `• name — quantity (est. $x.xx)`; final line
   `Estimated bill: $XX.XX`, plus `(budget $YY — under/over by $Z)` when a budget is
