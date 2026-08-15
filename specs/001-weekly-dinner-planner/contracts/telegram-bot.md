@@ -70,10 +70,12 @@ characters escaped. Phone-readability rules:
   (`🍲 Batch meal — covers 3 lunches + 1 dinner (4 portions)` /
   `✨ Stretch meal — new technique: braising`), then `⏱ prep`, `🍽 servings`,
   `🥩 protein`, and `🔗 source` when a web recipe backs the meal. Open nights listed
-  at the end. **On a turn that stages a plan this is the only message sent** — the
-  agent's plain reply text is dropped rather than delivered alongside it, since both
-  describe the same plan and only one is formatted. Turns that stage nothing (a
-  clarifying question, an explanation, an acceptance) deliver the reply text as usual.
+  at the end. **No plain-text companion message accompanies it**: on a turn that
+  stages a plan the agent's reply text is dropped rather than delivered alongside it,
+  since both describe the same plan and only one is formatted. A turn that stages and
+  accepts in one go therefore sends the plan and the grocery list with no prose
+  between them. Turns that stage nothing (a clarifying question, an explanation, an
+  acceptance) deliver the reply text as usual.
 - **Grocery list message**: sent as its own message so it can be scrolled while
   shopping; one item per line, `• name — quantity (est. $x.xx)`; final line
   `Estimated bill: $XX.XX`, plus `(budget $YY — under/over by $Z)` when a budget is
