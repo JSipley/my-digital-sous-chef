@@ -73,7 +73,12 @@ characters escaped. Phone-readability rules:
   the emoji for its category, keyword-matched from the free-text `primary_protein`
   (`🥩` red meat, `🍗` poultry, `🐟` fish, `🍤` shellfish, `🥚` eggs, `🌱`
   plant-based) and no emoji at all when the value is unrecognized. Open nights listed
-  at the end, omitted at 7 dinners rather than printed as a zero.
+  at the end. **No plain-text companion message accompanies it**: on a turn that
+  stages a plan the agent's reply text is dropped rather than delivered alongside it,
+  since both describe the same plan and only one is formatted. A turn that stages and
+  accepts in one go therefore sends the plan and the grocery list with no prose
+  between them. Turns that stage nothing (a clarifying question, an explanation, an
+  acceptance) deliver the reply text as usual.
 - **Grocery list message**: sent as its own message so it can be scrolled while
   shopping; one item per line, `• name — quantity (est. $x.xx)`; final line
   `Estimated bill: $XX.XX`, plus `(budget $YY — under/over by $Z)` when a budget is

@@ -268,14 +268,17 @@ class BotHandlers:
             logger.exception("agent turn failed for chat %s", chat_id)
             await context.bot.send_message(chat_id, AGENT_FAILURE_TEXT)
             return
-        if outcome.reply_text:
-            await context.bot.send_message(chat_id, outcome.reply_text)
         if outcome.newly_staged_plan is not None:
+            # The rendered plan replaces the agent's reply text for this
+            # turn: both describe the same plan, and only one of them is
+            # formatted for a phone.
             await context.bot.send_message(
                 chat_id,
                 render_plan(outcome.newly_staged_plan),
                 parse_mode="MarkdownV2",
             )
+        elif outcome.reply_text:
+            await context.bot.send_message(chat_id, outcome.reply_text)
         if outcome.newly_accepted is not None:
             chunks = render_grocery_list(
                 outcome.newly_accepted.grocery,
