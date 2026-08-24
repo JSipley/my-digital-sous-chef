@@ -16,6 +16,81 @@ TELEGRAM_MESSAGE_LIMIT = 4096
 
 _MARKDOWN_V2_RESERVED = re.compile(r"([_*\[\]()~`>#+\-=|{}.!\\])")
 
+# `primary_protein` is free text (FR-007), so the emoji is keyword-matched.
+# Order is load-bearing: categories collide as substrings, and the first
+# match wins — a "tuna steak" is fish, "turkey bacon" is poultry.
+_PROTEIN_KEYWORDS: tuple[tuple[str, tuple[str, ...]], ...] = (
+    (
+        "🍤",
+        ("shrimp", "prawn", "scallop", "crab", "lobster", "clam", "mussel", "oyster"),
+    ),
+    (
+        "🐟",
+        (
+            "fish",
+            "seafood",
+            "salmon",
+            "tuna",
+            "cod",
+            "halibut",
+            "tilapia",
+            "trout",
+            "haddock",
+            "mahi",
+            "snapper",
+            "sea bass",
+            "swordfish",
+            "sardine",
+            "anchovy",
+        ),
+    ),
+    ("🍗", ("chicken", "turkey", "duck", "poultry", "cornish hen")),
+    (
+        "🥩",
+        (
+            "beef",
+            "steak",
+            "sirloin",
+            "ribeye",
+            "brisket",
+            "short rib",
+            "lamb",
+            "pork",
+            "bacon",
+            "ham",
+            "sausage",
+            "chorizo",
+            "prosciutto",
+            "veal",
+            "venison",
+            "bison",
+        ),
+    ),
+    ("🥚", ("egg",)),
+    (
+        "🌱",
+        (
+            "tofu",
+            "tempeh",
+            "seitan",
+            "bean",
+            "lentil",
+            "chickpea",
+            "garbanzo",
+            "edamame",
+            "quinoa",
+            "plant",
+        ),
+    ),
+)
+
+# Trailing `s?` covers plurals without letting a keyword match inside a
+# longer word: "eggs" is eggs, "eggplant" is not.
+_PROTEIN_PATTERNS: tuple[tuple[re.Pattern[str], str], ...] = tuple(
+    (re.compile(rf"\b(?:{'|'.join(keywords)})s?\b"), emoji)
+    for emoji, keywords in _PROTEIN_KEYWORDS
+)
+
 
 def escape(text: str) -> str:
     """Escape every MarkdownV2 reserved character."""
@@ -162,6 +237,15 @@ def _batch_coverage(batch: BatchDetails) -> str:
     return f"covers {lunches} + 1 dinner ({portions})"
 
 
+def _protein_emoji(primary_protein: str) -> str:
+    """Emoji for a free-text protein; empty when nothing is recognized."""
+    text = primary_protein.casefold()
+    for pattern, emoji in _PROTEIN_PATTERNS:
+        if pattern.search(text):
+            return emoji
+    return ""
+
+
 def _render_meal(meal: Meal) -> str:
     lines = [f"*{escape(meal.name)}*"]
     if meal.batch is not None:
@@ -173,7 +257,9 @@ def _render_meal(meal: Meal) -> str:
     lines.append(escape(f"⏱ {meal.prep_minutes} min prep"))
     serving_word = "serving" if meal.servings == 1 else "servings"
     lines.append(escape(f"🍽 {meal.servings} {serving_word}"))
-    lines.append(escape(f"🥩 {meal.primary_protein}"))
+    emoji = _protein_emoji(meal.primary_protein)
+    protein = f"{emoji} {meal.primary_protein}" if emoji else meal.primary_protein
+    lines.append(escape(protein))
     if meal.source_url is not None:
         lines.append(escape(f"🔗 Recipe: {meal.source_url}"))
     return "\n".join(lines)

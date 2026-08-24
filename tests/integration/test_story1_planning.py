@@ -125,10 +125,13 @@ class TestScenario1CountsOnlyProposal:
         rendered = render_plan(plan)
         for meal_name in ("Chicken chili", "Seared salmon", "Turkey stir\\-fry"):
             assert meal_name in rendered
-        # Prep time, servings, and protein on every meal (SC-002).
+        # Prep time, servings, and protein on every meal (SC-002), each
+        # protein carrying the emoji for its own category.
         assert rendered.count("⏱") == 3
         assert rendered.count("🍽") == 3
-        assert rendered.count("🥩") == 3
+        assert "🍗 chicken" in rendered
+        assert "🐟 salmon" in rendered
+        assert "🍗 turkey" in rendered
 
 
 class TestScenario2FlagsStated:
