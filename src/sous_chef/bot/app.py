@@ -33,18 +33,18 @@ from sous_chef.bot.formatting import (
 
 PRIVATE_BOT_TEXT = "This is a private bot."
 WELCOME_TEXT = (
-    "Hi! I'm your digital sous chef. Each week, tell me how many dinners (3-4) "
-    "and how many lunches you want to cook, and I'll put together a plan of "
-    "healthy, high-protein meals — including one big-batch dish that covers your "
-    "lunches and one stretch meal that teaches you a new technique. You can swap "
-    "meals, set a budget, or change preferences at any point, and when you accept "
-    "the plan you'll get a grocery list with an estimated bill. "
-    "Just tell me your dinner and lunch counts to begin."
+    "Hi! I'm your digital sous chef. Each week, tell me how many dinners (1-7) "
+    "you want to cook, and I'll put together a plan of healthy, high-protein "
+    "meals — including one big-batch dish and one stretch meal that teaches you "
+    "a new technique. Want lunches covered too? Say how many and the batch dish "
+    "will cover them. You can swap meals, set a budget, or change preferences at "
+    "any point, and when you accept the plan you'll get a grocery list with an "
+    "estimated bill. Just tell me your dinner count to begin."
 )
 CANCEL_TEXT = (
     "Session abandoned — nothing was saved. Send a message any time to start fresh."
 )
-PLAN_COMMAND_TURN = "Let's plan this week's dinners and lunches."
+PLAN_COMMAND_TURN = "Let's plan this week's dinners."
 HISTORY_COMMAND_TURN = "What have I cooked in past weeks?"
 AGENT_FAILURE_TEXT = (
     "I hit a problem generating that — nothing was saved. "
@@ -52,12 +52,12 @@ AGENT_FAILURE_TEXT = (
 )
 EMPTY_HISTORY_TEXT = (
     "There are no past weeks yet — history starts once you accept your "
-    "first plan. Tell me your dinner and lunch counts to plan one."
+    "first plan. Tell me how many dinners you want to plan one."
 )
 EMPTY_COOKBOOK_TEXT = (
     "Your cookbook is empty — it fills up when you accept your first plan. "
     "Every meal then gets either a recipe link or step-by-step instructions "
-    "you can pull up here. Tell me your dinner and lunch counts to plan one."
+    "you can pull up here. Tell me how many dinners you want to plan one."
 )
 STALE_BUTTON_TEXT = (
     "That meal is no longer in your cookbook. Send /cookbook for the current week."

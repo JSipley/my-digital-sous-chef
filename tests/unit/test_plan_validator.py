@@ -99,7 +99,7 @@ class TestNominal:
         assert validate_plan(plan) == []
 
     def test_errors_carry_code_and_message(self) -> None:
-        errors = validate_plan(make_plan(dinner_count=5))
+        errors = validate_plan(make_plan(dinner_count=8))
         assert errors
         for error in errors:
             assert isinstance(error, PlanError)
@@ -109,11 +109,35 @@ class TestNominal:
 
 class TestCounts:
     def test_dinner_count_below_range(self) -> None:
-        plan = make_plan(dinner_count=2, meals=[make_meal(), make_meal()])
+        plan = make_plan(dinner_count=0, meals=[])
         assert "dinner_count_out_of_range" in codes(plan)
 
     def test_dinner_count_above_range(self) -> None:
-        assert "dinner_count_out_of_range" in codes(make_plan(dinner_count=5))
+        assert "dinner_count_out_of_range" in codes(make_plan(dinner_count=8))
+
+    def test_dinner_count_boundaries_pass(self) -> None:
+        one_dinner = make_plan(
+            dinner_count=1,
+            meals=[
+                make_meal(
+                    "Chicken chili",
+                    batch={"lunches_covered": 2, "total_portions": 3},
+                )
+            ],
+        )
+        seven_dinners = make_plan(
+            dinner_count=7,
+            meals=[
+                make_meal(
+                    "Chicken chili",
+                    batch={"lunches_covered": 2, "total_portions": 3},
+                ),
+                make_meal("Seared salmon", stretch={"technique": "searing"}),
+                *[make_meal(f"Weeknight dish {n}") for n in range(5)],
+            ],
+        )
+        assert validate_plan(one_dinner) == []
+        assert validate_plan(seven_dinners) == []
 
     def test_lunch_count_below_range(self) -> None:
         assert "lunch_count_out_of_range" in codes(make_plan(lunch_count=-1))
@@ -209,6 +233,55 @@ class TestBatchAndStretchFlags:
     def test_three_meals_with_flags_on_two_distinct_meals_passes(self) -> None:
         # Edge case: with 3 meals, two of the three carry the flags.
         assert validate_plan(make_plan()) == []
+
+
+class TestSingleDinnerWeek:
+    """At one dinner the batch meal stays; the stretch meal is not planned."""
+
+    def test_single_batch_meal_and_no_stretch_passes(self) -> None:
+        plan = make_plan(
+            dinner_count=1,
+            meals=[
+                make_meal(
+                    "Chicken chili",
+                    batch={"lunches_covered": 2, "total_portions": 3},
+                )
+            ],
+        )
+        assert validate_plan(plan) == []
+
+    def test_stretch_on_the_single_meal_is_rejected(self) -> None:
+        # Exactly one fixable code: batch_stretch_same_meal must stay quiet,
+        # or the model gets an error it cannot resolve at one dinner.
+        plan = make_plan(
+            dinner_count=1,
+            meals=[
+                make_meal(
+                    "Chicken chili",
+                    batch={"lunches_covered": 2, "total_portions": 3},
+                    stretch={"technique": "searing"},
+                )
+            ],
+        )
+        assert codes(plan) == {"stretch_meal_count"}
+
+    def test_missing_batch_meal_is_still_rejected(self) -> None:
+        plan = make_plan(dinner_count=1, lunch_count=0, meals=[make_meal("A")])
+        assert "batch_meal_count" in codes(plan)
+
+    def test_lunches_are_covered_by_the_single_batch_meal(self) -> None:
+        plan = make_plan(
+            dinner_count=1,
+            lunch_count=5,
+            meals=[
+                make_meal(
+                    "Chicken chili",
+                    servings=2,
+                    batch={"lunches_covered": 5, "total_portions": 12},
+                )
+            ],
+        )
+        assert validate_plan(plan) == []
 
 
 class TestBatchCoverage:
@@ -382,7 +455,7 @@ class TestMealFields:
 class TestMultipleErrors:
     def test_all_violations_reported_together(self) -> None:
         plan = make_plan(
-            dinner_count=5,
+            dinner_count=8,
             lunch_count=9,
             meals=[make_meal(), make_meal(), make_meal()],
         )

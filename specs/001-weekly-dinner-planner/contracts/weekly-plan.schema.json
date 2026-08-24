@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "weekly-plan.schema.json",
   "title": "WeeklyPlan",
-  "description": "Input schema for the propose_plan tool (declared with strict: true). Numeric ranges (dinner_count 3-4, lunch_count 0-7, positive quantities) are enforced by deterministic validators, not the schema, because strict tool use does not support numeric constraints.",
+  "description": "Input schema for the propose_plan tool (declared with strict: true). Numeric ranges (dinner_count 1-7, lunch_count 0-7, positive quantities) are enforced by deterministic validators, not the schema, because strict tool use does not support numeric constraints.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -21,11 +21,11 @@
     },
     "dinner_count": {
       "type": "integer",
-      "description": "Number of dinners the user asked to cook this week. Validator enforces 3-4."
+      "description": "Number of dinners the user asked to cook this week. Validator enforces 1-7."
     },
     "lunch_count": {
       "type": "integer",
-      "description": "Number of lunches to cover, all supplied by the batch meal. Validator enforces 0-7."
+      "description": "Number of lunches to cover, all supplied by the batch meal. 0 unless the user volunteered a count. Validator enforces 0-7."
     },
     "diet_type": {
       "type": ["string", "null"],
@@ -41,7 +41,7 @@
     },
     "meals": {
       "type": "array",
-      "description": "Exactly dinner_count meals. Exactly one meal carries batch details and exactly one different meal carries stretch details.",
+      "description": "Exactly dinner_count meals. Exactly one meal carries batch details and exactly one different meal carries stretch details — except at dinner_count 1, where the single meal carries batch details only.",
       "items": { "$ref": "#/$defs/Meal" }
     }
   },
@@ -89,7 +89,7 @@
             { "$ref": "#/$defs/StretchDetails" },
             { "type": "null" }
           ],
-          "description": "Non-null on exactly one meal (distinct from the batch meal): the stretch meal."
+          "description": "Non-null on exactly one meal (distinct from the batch meal): the stretch meal. Null on every meal when dinner_count is 1."
         },
         "source_url": {
           "type": ["string", "null"],

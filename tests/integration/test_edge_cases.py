@@ -123,31 +123,29 @@ class TestCountsOutOfRange:
     async def test_dinner_count_outside_range_reprompted(
         self, repo: HistoryRepo
     ) -> None:
-        five_meals = [
+        eight_meals = [
             meal("Chicken chili", batch={"lunches_covered": 2, "total_portions": 3}),
             meal("Seared salmon", stretch={"technique": "searing"}),
-            meal("Turkey stir-fry"),
-            meal("Pork chops", protein="pork"),
-            meal("Beef tacos", protein="beef"),
+            *[meal(f"Weeknight dish {n}") for n in range(6)],
         ]
         transport = FakeTransport.scripted(
             [
                 ScriptedToolCall(
-                    "propose_plan", payload(dinner_count=5, meals=five_meals)
+                    "propose_plan", payload(dinner_count=8, meals=eight_meals)
                 ),
                 ScriptedText(
-                    "I plan 3-4 dinners a week — open nights absorb the rest. "
-                    "How many dinners (3-4) would you like?"
+                    "There are only 7 nights in a week — open nights absorb the "
+                    "rest. How many dinners (1-7) would you like?"
                 ),
             ]
         )
         session = make_session(transport, repo)
-        outcome = await session.handle_message("5 dinners and 2 lunches")
+        outcome = await session.handle_message("8 dinners and 2 lunches")
         result = json.loads(transport.tool_calls[0].result)
         assert result["ok"] is False
         assert "dinner_count_out_of_range" in [e["code"] for e in result["errors"]]
         assert outcome.newly_staged_plan is None
-        assert "3-4" in outcome.reply_text
+        assert "1-7" in outcome.reply_text
 
     async def test_more_than_seven_lunches_rejected(self, repo: HistoryRepo) -> None:
         transport = FakeTransport.scripted(
@@ -164,14 +162,90 @@ class TestCountsOutOfRange:
         assert outcome.newly_staged_plan is None
 
 
+class TestSingleDinnerWeek:
+    async def test_one_dinner_plans_a_batch_meal_and_no_stretch_meal(
+        self, repo: HistoryRepo
+    ) -> None:
+        transport = FakeTransport.scripted(
+            [
+                ScriptedToolCall(
+                    "propose_plan",
+                    payload(
+                        dinner_count=1,
+                        lunch_count=3,
+                        meals=[
+                            meal(
+                                "Chicken chili",
+                                batch={"lunches_covered": 3, "total_portions": 4},
+                            )
+                        ],
+                    ),
+                ),
+                ScriptedToolCall("accept_plan", {"week_id": WEEK_ID}),
+                ScriptedText(
+                    "One dinner this week, so no stretch meal — the chili is "
+                    "your batch meal and covers your 3 lunches."
+                ),
+            ]
+        )
+        session = make_session(transport, repo)
+        outcome = await session.handle_message("just 1 dinner and 3 lunches, accept it")
+        result = json.loads(transport.tool_calls[0].result)
+        assert result["ok"] is True
+        plan = outcome.newly_staged_plan
+        assert plan is not None
+        assert plan.stretch_meal is None
+        assert plan.batch_meal is not None and plan.batch_meal.batch is not None
+        assert plan.batch_meal.batch.total_portions == 4
+        rendered = render_plan(plan)
+        assert "✨ Stretch meal" not in rendered
+        assert "Open nights: 6" in rendered
+        # A stretch-less plan must survive persistence: every other accepted
+        # plan in the suite has one, so this is the only cover for that path.
+        assert outcome.newly_accepted is not None
+        assert outcome.newly_accepted.grocery.items
+        assert repo.cooked_techniques() == []
+        assert [
+            (entry.meal_name, entry.is_batch, entry.is_stretch)
+            for entry in repo.meals_for_week(WEEK_ID)
+        ] == [("Chicken chili", True, False)]
+
+
+class TestFullWeek:
+    async def test_seven_dinners_omit_the_open_nights_line(
+        self, repo: HistoryRepo
+    ) -> None:
+        seven_meals = [
+            meal("Chicken chili", batch={"lunches_covered": 2, "total_portions": 3}),
+            meal("Seared salmon", stretch={"technique": "searing"}),
+            *[meal(f"Weeknight dish {n}") for n in range(5)],
+        ]
+        transport = FakeTransport.scripted(
+            [
+                ScriptedToolCall(
+                    "propose_plan", payload(dinner_count=7, meals=seven_meals)
+                ),
+                ScriptedText("Cooking every night this week!"),
+            ]
+        )
+        session = make_session(transport, repo)
+        outcome = await session.handle_message("7 dinners and 2 lunches")
+        plan = outcome.newly_staged_plan
+        assert plan is not None
+        assert plan.stretch_meal is not None
+        assert plan.batch_meal is not plan.stretch_meal
+        # Nothing to report when the week is full — no "Open nights: 0" line.
+        assert "Open nights" not in render_plan(plan)
+
+
 class TestZeroLunches:
     async def test_zero_lunch_batch_meal_still_flagged(self, repo: HistoryRepo) -> None:
         transport = FakeTransport.scripted(
             [
                 ScriptedToolCall("propose_plan", payload(lunch_count=0)),
                 ScriptedText(
-                    "No lunches this week, so the batch meal covers only its "
-                    "dinner night — less meal-prep benefit, still one pot."
+                    "No lunches this week, so the batch meal is portioned for "
+                    "its dinner night."
                 ),
             ]
         )
@@ -183,9 +257,11 @@ class TestZeroLunches:
         assert plan.batch_meal.batch.lunches_covered == 0
         assert plan.batch_meal.batch.total_portions == 1
         rendered = render_plan(plan)
+        # Zero lunches is the default week, so the batch line reads as a
+        # statement of coverage rather than a warning about what is missing.
         assert "🍲 Batch meal" in rendered
-        assert "covers 0 lunches" in rendered
-        assert "meal-prep benefit" in outcome.reply_text
+        assert "covers 0 lunches" not in rendered
+        assert "1 dinner night" in rendered
 
 
 class TestVeganProteinAdaptation:

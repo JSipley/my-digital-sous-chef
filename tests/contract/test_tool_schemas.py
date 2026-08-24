@@ -97,7 +97,7 @@ class TestProposePlanResultShape:
         self, session: Session
     ) -> None:
         payload = sample_payload()
-        payload["dinner_count"] = 5
+        payload["dinner_count"] = 8
         tool = tool_named(session, "propose_plan")
         result = json.loads(await tool.call(payload))
         assert result["ok"] is False

@@ -93,7 +93,7 @@ class Meal(BaseModel):
     stretch: StretchDetails | None = Field(
         description=(
             "Non-null on exactly one meal (distinct from the batch meal): "
-            "the stretch meal."
+            "the stretch meal. Null on every meal when dinner_count is 1."
         )
     )
     source_url: str | None = Field(
@@ -129,13 +129,13 @@ class WeeklyPlan(BaseModel):
     dinner_count: int = Field(
         description=(
             "Number of dinners the user asked to cook this week. "
-            "Validator enforces 3-4."
+            "Validator enforces 1-7."
         )
     )
     lunch_count: int = Field(
         description=(
             "Number of lunches to cover, all supplied by the batch meal. "
-            "Validator enforces 0-7."
+            "0 unless the user volunteered a count. Validator enforces 0-7."
         )
     )
     diet_type: str | None = Field(
@@ -155,7 +155,8 @@ class WeeklyPlan(BaseModel):
     meals: list[Meal] = Field(
         description=(
             "Exactly dinner_count meals. Exactly one meal carries batch details and "
-            "exactly one different meal carries stretch details."
+            "exactly one different meal carries stretch details — except at "
+            "dinner_count 1, where the single meal carries batch details only."
         )
     )
     status: SkipJsonSchema[PlanStatus] = PlanStatus.DRAFT

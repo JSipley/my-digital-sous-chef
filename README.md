@@ -1,10 +1,11 @@
 # My Digital Sous Chef
 
 A single-user, conversational weekly dinner planner delivered as a **Telegram
-bot**. Tell it how many dinners (3–4) and lunches you want to cook this week
-and it curates healthy, high-protein meals — always exactly one **batch meal**
-(cooked once, portioned to cover your lunches) and one **stretch meal** that
-teaches a new technique. Accepting the plan produces a merged **grocery list**
+bot**. Tell it how many dinners (1–7) you want to cook this week — optionally
+how many lunches too — and it curates healthy, high-protein meals: always
+exactly one **batch meal** (cooked once, portioned to cover your lunches) and,
+on any week with 2 or more dinners, one **stretch meal** that teaches a new
+technique. Accepting the plan produces a merged **grocery list**
 with a computed **estimated bill**, optionally checked against a weekly
 budget. Accepted plans persist to SQLite; the next week's session opens with a
 cooked check-in, and dishes you cooked don't repeat within 4 weeks.
