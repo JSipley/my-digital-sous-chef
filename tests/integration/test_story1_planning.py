@@ -302,6 +302,43 @@ class TestBotOrderingAndDelivery:
         assert len(plan_messages) == 1
         assert plan_messages[0][1] == "MarkdownV2"
 
+    async def test_staging_turn_sends_only_the_rendered_plan(
+        self, repo: HistoryRepo
+    ) -> None:
+        transport = FakeTransport.scripted(
+            [ScriptedToolCall("propose_plan", plan_payload()), ScriptedText("Plan!")]
+        )
+        session = make_session(transport, repo)
+        handlers = BotHandlers(
+            allowed_chat_id=CHAT_ID,
+            session_factory=lambda chat_id: session,
+        )
+        bot = RecordingBot([])
+        update = fake_update(CHAT_ID, "3 dinners and 2 lunches please")
+        await handlers.on_text(update, SimpleNamespace(bot=bot))
+
+        staged = session.state.staged_draft
+        assert staged is not None
+        # The agent's plain reply is dropped: it only restates the plan the
+        # rendered message already shows.
+        assert bot.messages == [(render_plan(staged), "MarkdownV2")]
+
+    async def test_non_staging_turn_sends_the_agents_reply(
+        self, repo: HistoryRepo
+    ) -> None:
+        question = "Happy to! How many dinners (3-4) and how many lunches?"
+        transport = FakeTransport.scripted([ScriptedText(question)])
+        handlers = BotHandlers(
+            allowed_chat_id=CHAT_ID,
+            session_factory=lambda chat_id: make_session(transport, repo),
+        )
+        bot = RecordingBot([])
+        await handlers.on_text(
+            fake_update(CHAT_ID, "plan my week"), SimpleNamespace(bot=bot)
+        )
+
+        assert bot.messages == [(question, None)]
+
     async def test_unauthorized_chat_is_refused_without_state_change(
         self, repo: HistoryRepo
     ) -> None:
