@@ -69,7 +69,10 @@ characters escaped. Phone-readability rules:
 - **Plan message**: one meal per block — name (bold), flags on their own line
   (`🍲 Batch meal — covers 3 lunches + 1 dinner (4 portions)` /
   `✨ Stretch meal — new technique: braising`), then `⏱ prep`, `🍽 servings`,
-  `🥩 protein`, and `🔗 source` when a web recipe backs the meal. Open nights listed
+  protein, and `🔗 source` when a web recipe backs the meal. The protein line carries
+  the emoji for its category, keyword-matched from the free-text `primary_protein`
+  (`🥩` red meat, `🍗` poultry, `🐟` fish, `🍤` shellfish, `🥚` eggs, `🌱`
+  plant-based) and no emoji at all when the value is unrecognized. Open nights listed
   at the end. **No plain-text companion message accompanies it**: on a turn that
   stages a plan the agent's reply text is dropped rather than delivered alongside it,
   since both describe the same plan and only one is formatted. A turn that stages and
