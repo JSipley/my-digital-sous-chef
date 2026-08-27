@@ -10,6 +10,7 @@ import logging
 from collections.abc import Callable
 
 from telegram import InlineKeyboardMarkup, Update
+from telegram.error import BadRequest, NetworkError, RetryAfter
 from telegram.ext import (
     Application,
     ApplicationBuilder,
@@ -299,6 +300,25 @@ class BotHandlers:
         return chat.id
 
 
+async def on_error(_update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Log the errors python-telegram-bot routes here.
+
+    Polling runs under PTB's `network_retry_loop` with `max_retries=-1`, so a
+    connectivity error there is retried until it succeeds. A traceback for one
+    is indistinguishable in the log from a bot that has actually stopped, so
+    those are logged as a single line instead.
+    """
+    error = context.error
+    # BadRequest subclasses NetworkError, but it means our own MarkdownV2 is
+    # malformed: nothing retries it and it must keep its traceback.
+    if isinstance(error, NetworkError | RetryAfter) and not isinstance(
+        error, BadRequest
+    ):
+        logger.warning("transient Telegram network error, retrying: %s", error)
+        return
+    logger.error("unhandled error while processing an update", exc_info=error)
+
+
 def build_application(token: str, handlers: BotHandlers) -> Application:
     application = ApplicationBuilder().token(token).build()
     application.add_handler(CommandHandler("start", handlers.on_start))
@@ -310,4 +330,5 @@ def build_application(token: str, handlers: BotHandlers) -> Application:
     application.add_handler(
         MessageHandler(filters.TEXT & ~filters.COMMAND, handlers.on_text)
     )
+    application.add_error_handler(on_error)
     return application
