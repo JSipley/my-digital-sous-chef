@@ -39,7 +39,8 @@ Two steps, both required:
    following the dead inode and go silent forever after the first restart.
    The grep is deliberately broad — a filter matching only known signatures
    goes quiet during an unfamiliar failure, and quiet is indistinguishable
-   from healthy.
+   from healthy. It no longer fires on ordinary connectivity blips: those log
+   as a single WARNING line, which this pattern does not match.
 
 Confirm the start worked with `./scripts/sous-chef-ctl logs`. A healthy boot
 shows python-telegram-bot's "Application started" line. **Nothing else is
@@ -47,10 +48,10 @@ printed when the bot is healthy** — silence afterward is normal, not a problem
 
 ## Why the Monitor is the primary signal
 
-`build_application` in `src/sous_chef/bot/app.py` registers no
-`add_error_handler`, so python-telegram-bot catches handler exceptions, logs
-them, and **keeps polling**. The most common failure therefore leaves the
-process alive and the background task running — the log is the only place it
+`build_application` in `src/sous_chef/bot/app.py` registers `on_error`, so
+python-telegram-bot routes handler and polling exceptions there, logs them,
+and **keeps polling**. The most common failure therefore leaves the process
+alive and the background task running — the log is the only place it
 surfaces. Process exit is the secondary signal; it catches startup crashes
 (`ConfigError` from a missing env var, `InvalidToken`).
 
@@ -75,9 +76,11 @@ do nothing else. Do not restart.
 
 ### Do not restart for these
 
-`telegram.error.NetworkError`, `TimedOut`, and `RetryAfter`. PTB logs these at
-ERROR during ordinary connectivity blips and recovers by itself. Report and
-move on.
+`telegram.error.NetworkError`, `TimedOut`, and `RetryAfter`. PTB retries
+polling indefinitely and recovers by itself. `on_error` logs each as one
+WARNING line, `transient Telegram network error, retrying: ...`, with no
+traceback, so the Monitor above stays quiet. If you see one while reading
+logs directly, report and move on.
 
 ### Restarting
 
@@ -104,7 +107,8 @@ memory only, so a restart discards any in-flight conversation by design.
 |---|---|---|
 | `ConfigError` | missing or malformed env var (`SOUS_CHEF_*`, `ANTHROPIC_API_KEY`) — raised by `Settings.from_env()` before anything starts | no |
 | `telegram.error.InvalidToken` | bad `SOUS_CHEF_TELEGRAM_TOKEN`, fails inside `run_polling()` | no |
-| `telegram.error.BadRequest` from a `send_message` / `edit_message_text` call | MarkdownV2 escaping miss in a meal name; the user sees nothing or a dead button | yes |
+| `WARNING ... transient Telegram network error, retrying` | a connectivity blip; PTB's retry loop recovers on its own. Expected, not actionable | yes |
+| `telegram.error.BadRequest` from a `send_message` / `edit_message_text` call | MarkdownV2 escaping miss in a meal name; the user sees nothing or a dead button. `BadRequest` subclasses `NetworkError` but is never downgraded to WARNING | yes |
 | `sqlite3.OperationalError: no such column` | schema drift in `sous_chef.db` (added columns ship without migrations) | yes |
 | `agent turn failed` | caught agent error; the user got `AGENT_FAILURE_TEXT` and can retry | yes |
 | nothing at all, for many minutes, mid-turn | `AnthropicTransport` sets no `timeout`/`max_retries` (`agent/client.py`), so one stalled turn can occupy ~30 min | yes |
