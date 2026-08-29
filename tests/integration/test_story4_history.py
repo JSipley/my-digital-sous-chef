@@ -1,4 +1,4 @@
-"""Integration tests for US4 acceptance scenarios 1-6 (T043).
+"""Integration tests for the meal-history story.
 
 Two consecutive weekly sessions over one SQLite file: acceptance logs
 meals, the next session opens with a cooked check-in, cooked dishes don't

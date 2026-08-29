@@ -1,4 +1,4 @@
-"""Integration tests for US2 acceptance scenarios 1-4 (T030).
+"""Integration tests for the grocery-list story.
 
 Accepting a plan yields one flat merged grocery list plus a computed
 estimated bill, persisted to SQLite; any post-acceptance change regenerates
@@ -151,7 +151,7 @@ class TestScenario1FlatMergedListOnAccept:
         accepted = outcome.newly_accepted
         assert accepted is not None
         names = [item.name for item in accepted.grocery.items]
-        assert len(names) == len(set(names)), "SC-003: each ingredient exactly once"
+        assert len(names) == len(set(names)), "each ingredient exactly once"
         # olive oil appears in all three meals but merges to one line.
         assert names.count("olive oil") == 1
         oil = next(i for i in accepted.grocery.items if i.name == "olive oil")

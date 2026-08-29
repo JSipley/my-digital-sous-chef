@@ -1,6 +1,6 @@
-"""Performance budget assertions for non-LLM paths (T052).
+"""Performance budget assertions for non-LLM paths.
 
-Constitution Principle IV: grocery merge, plan validation, and history
+Grocery merge, plan validation, and history
 queries each complete well under 200 ms at this project's data scale.
 """
 

@@ -1,5 +1,4 @@
-"""Integration tests for the spec Edge Cases section (T049) and the
-transport error states from contracts/telegram-bot.md (T050).
+"""Integration tests for edge cases and the transport error states.
 
 Counts out of range, zero lunches, vegan protein adaptation, announced
 repetition relaxation, post-acceptance serving changes, abandoned sessions,

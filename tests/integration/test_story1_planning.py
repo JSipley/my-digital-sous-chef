@@ -1,7 +1,7 @@
-"""Integration tests for US1 acceptance scenarios 1-6 (T020).
+"""Integration tests for the weekly planning conversation story.
 
 Drives the real session loop, tools, validators, and rendering through the
-scripted fake LLM transport — zero network. Also asserts the SC-007
+scripted fake LLM transport — zero network. Also asserts the
 contractual ordering: the typing indicator is emitted BEFORE the agent call,
 with no chat message ahead of it.
 """
@@ -125,7 +125,7 @@ class TestScenario1CountsOnlyProposal:
         rendered = render_plan(plan)
         for meal_name in ("Chicken chili", "Seared salmon", "Turkey stir\\-fry"):
             assert meal_name in rendered
-        # Prep time, servings, and protein on every meal (SC-002), each
+        # Prep time, servings, and protein on every meal, each
         # protein carrying the emoji for its own category.
         assert rendered.count("⏱") == 3
         assert rendered.count("🍽") == 3

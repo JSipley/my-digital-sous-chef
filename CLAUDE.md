@@ -40,11 +40,8 @@ Key seams and invariants:
 
 Test layout mirrors this: `tests/unit/` covers services/business logic, `tests/contract/` pins the plan schema and tool schemas, `tests/integration/` plays scripted conversations per user story through the fake transport with a temp database.
 
-## Project constitution
+## Engineering rules
 
-`.specify/memory/constitution.md` is binding and supersedes other practices. The parts that most affect day-to-day changes:
-
-- **Test-first is non-negotiable**: tests are written and observed to fail before implementation; a contract change without a test change must be rejected.
+- **Test-first is non-negotiable**: tests are written and observed to fail before implementation; a contract or schema change without a test change must be rejected.
 - Tests must be deterministic — independent of network, ordering, and wall-clock time (inject `now`/`tz` as `Session` does).
 - Zero lint warnings; no dead code, commented-out blocks, or speculative abstractions; comments only for constraints the code cannot express.
-- Features follow the Spec Kit flow (specify → clarify → plan → tasks → implement) with artifacts under `specs/<###-feature-name>/`; the `speckit-*` skills in `.claude/skills/` drive it. Design docs and contracts for the existing feature live in `specs/001-weekly-dinner-planner/`.

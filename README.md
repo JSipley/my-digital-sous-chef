@@ -100,8 +100,3 @@ src/sous_chef/
 ├── agent/       # Claude conversation loop, client tools, system prompt
 └── bot/         # Telegram transport, MarkdownV2 formatting, typing/ack
 ```
-
-Design docs, contracts, and the full specification live in
-[`specs/001-weekly-dinner-planner/`](specs/001-weekly-dinner-planner/) —
-start with [`quickstart.md`](specs/001-weekly-dinner-planner/quickstart.md)
-for the manual end-to-end validation walkthrough.

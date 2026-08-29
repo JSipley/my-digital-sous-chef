@@ -1,4 +1,4 @@
-"""Unit tests for the deterministic plan validators (T019)."""
+"""Unit tests for the deterministic plan validators."""
 
 from typing import Any
 

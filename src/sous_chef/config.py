@@ -58,7 +58,7 @@ def _parse_chat_id(raw: str) -> int:
 
 
 def _parse_tz(raw: str | None) -> tzinfo:
-    # Per research R11: default to the machine's local zone when unset.
+    # Default to the machine's local zone when unset.
     if raw is None or not raw.strip():
         local = datetime.now().astimezone().tzinfo
         assert local is not None  # astimezone() always attaches a tzinfo

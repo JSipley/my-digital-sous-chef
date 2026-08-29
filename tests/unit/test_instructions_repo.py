@@ -1,8 +1,8 @@
 """Persistence of cooking instructions on the meals table.
 
 The regression this file exists for: `save_accepted_plan` deletes and
-re-inserts every meal row, and mid-week re-acceptance is a supported flow
-(FR-015/022), so saved steps must survive an edit.
+re-inserts every meal row, and mid-week re-acceptance is a supported flow,
+so saved steps must survive an edit.
 """
 
 from datetime import UTC, datetime

@@ -1,7 +1,7 @@
-"""Unit tests for deterministic grocery merging (T028, research R9).
+"""Unit tests for deterministic grocery merging.
 
 Name normalization, unit-family conversion, compound quantities for
-unmergeable units, and the SC-003 guarantee that each normalized ingredient
+unmergeable units, and the guarantee that each normalized ingredient
 appears exactly once.
 """
 
@@ -187,7 +187,7 @@ class TestExactlyOnce:
         )
         grocery = build_grocery_list(plan)
         names = [item.name for item in grocery.items]
-        assert len(names) == len(set(names)), "SC-003: each ingredient exactly once"
+        assert len(names) == len(set(names)), "each ingredient exactly once"
         assert names == ["olive oil", "garlic", "chicken thighs", "salmon"]
         oil = grocery.items[0]
         assert [(q.amount, q.unit) for q in oil.quantities] == [(5.0, "tbsp")]
@@ -207,7 +207,7 @@ class TestExactlyOnce:
 class TestBatchCoverageScaling:
     def test_batch_meal_quantities_pass_through_at_full_coverage(self) -> None:
         # The model scales batch ingredients to lunches + dinner already;
-        # the merge must use those quantities verbatim (research R9).
+        # the merge must use those quantities verbatim.
         plan = plan_of(
             [
                 meal(

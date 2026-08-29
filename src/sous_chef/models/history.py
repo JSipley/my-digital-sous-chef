@@ -1,4 +1,4 @@
-"""Meal history models — the sole source of "what the user has cooked" (FR-025)."""
+"""Meal history models — the sole source of "what the user has cooked"."""
 
 from __future__ import annotations
 

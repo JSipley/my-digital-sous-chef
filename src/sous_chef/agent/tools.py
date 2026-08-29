@@ -1,4 +1,4 @@
-"""Client tool definitions wired to services (contracts/agent-tools.md).
+"""Client tool definitions wired to services.
 
 Tools are built per session so each closure stages drafts into that
 session's in-memory state. Results are JSON with a top-level "ok" flag;
@@ -24,7 +24,7 @@ if TYPE_CHECKING:
     from sous_chef.agent.session import Session
 
 # Consecutive repeated_dish rejections before the session announces it is
-# relaxing the 4-week repetition window (research R10, spec edge case).
+# relaxing the 4-week repetition window.
 REPETITION_RELAXATION_THRESHOLD = 2
 
 RELAXATION_NOTE = (

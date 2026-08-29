@@ -1,8 +1,8 @@
-"""Unit tests for estimated-bill totaling and budget comparison (T029, T036).
+"""Unit tests for estimated-bill totaling and budget comparison.
 
 The bill is the computed sum of item price estimates — never generated as
 text. Nominal sums, empty/zero-price boundaries, rounding determinism, and
-budget-delta math (FR-018/FR-020: over-budget plans report an exact overage,
+budget-delta math (over-budget plans report an exact overage,
 they are never rejected).
 """
 
@@ -126,7 +126,7 @@ class TestBudgetComparison:
         assert grocery.budget_delta_usd == 0.0
 
     def test_over_budget_plan_is_not_rejected_by_validators(self) -> None:
-        # FR-020: nutrition wins per FR-008 — an over-budget plan is valid;
+        # Nutrition wins — an over-budget plan is valid;
         # the overage is surfaced as data, never as a validation error.
         meals = [
             meal("Chicken chili", [ingredient("chicken", 99.0)])

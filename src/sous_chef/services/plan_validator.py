@@ -1,8 +1,8 @@
-"""Deterministic plan validators (research R7): the code disposes.
+"""Deterministic plan validators: the code disposes.
 
 Every rule the strict tool schema cannot express lives here; validation
 failures are returned to the model as tool results for self-correction and
-are never shown raw to the user (contracts/agent-tools.md).
+are never shown raw to the user.
 """
 
 from __future__ import annotations
@@ -50,7 +50,7 @@ def validate_plan(
     History context comes from the caller: normalized dish names cooked in
     the 4 weeks before the plan's week, and techniques from cooked stretch
     meals (all history). `repetition_relaxed` is the session's announced
-    relaxation flag (research R10).
+    relaxation flag.
     """
     errors: list[PlanError] = []
     errors.extend(_count_errors(plan))

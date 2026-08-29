@@ -1,4 +1,4 @@
-"""Integration tests for US3 acceptance scenarios 1-5 (T037).
+"""Integration tests for the weekly-budget story.
 
 Optional weekly budget: offered at conversation start, never blocking when
 declined, exact overage amounts when nutrition wins, and mid-session

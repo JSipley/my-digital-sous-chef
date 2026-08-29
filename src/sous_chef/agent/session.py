@@ -1,4 +1,4 @@
-"""In-memory per-chat session state and message loop (FR-021).
+"""In-memory per-chat session state and message loop.
 
 A Session lives only in memory: abandoning it (process restart, /cancel,
 user silence) discards the object and nothing reaches SQLite until the
@@ -80,7 +80,7 @@ class Session:
         self.repo = repo
         self.last_acceptance: AcceptedArtifacts | None = None
         # Consecutive repeated_dish rejections; drives announced relaxation
-        # of the repetition window (research R10).
+        # of the repetition window.
         self.repetition_rejections = 0
         resolved_tz = tz if tz is not None else datetime.now().astimezone().tzinfo
         assert resolved_tz is not None  # astimezone() always attaches a tzinfo

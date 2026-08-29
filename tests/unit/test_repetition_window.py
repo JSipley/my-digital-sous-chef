@@ -1,4 +1,4 @@
-"""Unit tests for the 4-week repetition window and technique novelty (T042).
+"""Unit tests for the 4-week repetition window and technique novelty.
 
 Normalized-name matching per the clarified rule (chicken chili twice =
 repeat; beef chili ≠ chicken chili), cooked-only counting, explicit-repeat
