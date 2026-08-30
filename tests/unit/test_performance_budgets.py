@@ -41,7 +41,8 @@ def realistic_plan() -> WeeklyPlan:
                 {
                     "name": f"ingredient {index}-{n}",
                     "quantity": 1.0 + n,
-                    "unit": ["g", "kg", "cup", "tbsp", "count", "can"][n % 6],
+                    "unit": ["oz", "lb", "cup", "tbsp", "count", "fl oz"][n % 6],
+                    "package": None,
                     "estimated_price_usd": 2.5,
                 }
                 for n in range(15)

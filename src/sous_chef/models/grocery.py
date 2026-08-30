@@ -4,12 +4,25 @@ from __future__ import annotations
 
 from pydantic import BaseModel, ConfigDict
 
+from sous_chef.models.plan import Unit
+
 
 class Quantity(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     amount: float
-    unit: str
+    unit: Unit
+
+
+class PackageCount(BaseModel):
+    """How many fixed-size packages of an item to buy, rounded up."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    form: str
+    size_amount: float
+    size_unit: Unit
+    packages: int
 
 
 class GroceryItem(BaseModel):
@@ -17,6 +30,7 @@ class GroceryItem(BaseModel):
 
     name: str
     quantities: list[Quantity]
+    package: PackageCount | None
     estimated_price_usd: float
 
 

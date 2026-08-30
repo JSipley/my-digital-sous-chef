@@ -8,8 +8,9 @@ from __future__ import annotations
 
 import re
 
-from sous_chef.models.grocery import GroceryItem, GroceryList
-from sous_chef.models.plan import BatchDetails, Meal, WeeklyPlan
+from sous_chef.models.grocery import GroceryItem, GroceryList, PackageCount, Quantity
+from sous_chef.models.plan import BatchDetails, Meal, Unit, WeeklyPlan
+from sous_chef.services.grocery import pluralize_ingredient_name
 
 NIGHTS_PER_WEEK = 7
 TELEGRAM_MESSAGE_LIMIT = 4096
@@ -136,7 +137,7 @@ def render_instructions(meal: Meal, instructions: str) -> list[str]:
     """
     lines = [f"*{escape(f'📝 {meal.name}')}*", "", f"*{escape('Ingredients')}*"]
     lines.extend(
-        escape(f"  • {_format_amount(i.quantity)} {i.unit} {i.name}")
+        escape(f"  • {_quantity_phrase(i.quantity, i.unit, i.name)}")
         for i in meal.ingredients
     )
     steps = [step for step in instructions.splitlines() if step.strip()]
@@ -194,10 +195,45 @@ def render_cookbook_empty_week(week_id: str, *, is_current_week: bool = False) -
 
 
 def _render_grocery_item(item: GroceryItem) -> str:
-    quantity = " + ".join(
-        f"{_format_amount(q.amount)} {q.unit}" for q in item.quantities
-    )
-    return escape(f"• {item.name} — {quantity} (est. ${item.estimated_price_usd:.2f})")
+    price = f"(est. ${item.estimated_price_usd:.2f})"
+    counted = None if item.package is not None else _lone_count(item)
+    # A plain countable thing reads as English, not as a measurement:
+    # '1 lemon', not 'lemon — 1 count'.
+    if counted is not None:
+        return escape(f"• {_quantity_phrase(counted, Unit.COUNT, item.name)} {price}")
+    measure = " + ".join(_measure(quantity, item.name) for quantity in item.quantities)
+    if item.package is not None:
+        measure = f"{_package_label(item.package)} ({measure})"
+    return escape(f"• {item.name} — {measure} {price}")
+
+
+def _lone_count(item: GroceryItem) -> float | None:
+    """The amount when the item is nothing but a count, else None."""
+    if len(item.quantities) != 1 or item.quantities[0].unit is not Unit.COUNT:
+        return None
+    return item.quantities[0].amount
+
+
+def _measure(quantity: Quantity, name: str) -> str:
+    if quantity.unit is Unit.COUNT:
+        return _quantity_phrase(quantity.amount, quantity.unit, name)
+    return f"{_format_amount(quantity.amount)} {quantity.unit}"
+
+
+def _package_label(package: PackageCount) -> str:
+    """How many packages to buy: '3 x 15 oz can', '1 x 12 carton'."""
+    size = _format_amount(package.size_amount)
+    if package.size_unit is not Unit.COUNT:
+        size = f"{size} {package.size_unit}"
+    return f"{package.packages} x {size} {package.form}"
+
+
+def _quantity_phrase(amount: float, unit: Unit, name: str) -> str:
+    """'1.5 lb chicken thighs' — but 'count' is never a word the user reads."""
+    if unit is Unit.COUNT:
+        display = name if amount == 1 else pluralize_ingredient_name(name)
+        return f"{_format_amount(amount)} {display}"
+    return f"{_format_amount(amount)} {unit} {name}"
 
 
 def _format_amount(amount: float) -> str:

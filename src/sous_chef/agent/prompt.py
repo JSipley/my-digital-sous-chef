@@ -70,6 +70,23 @@ adjustments that keep the nutrition standard — an over-budget plan is \
 staged, never rejected. A budget applies to its week only; never carry one \
 into a new week's conversation.
 
+## Ingredients and quantities
+
+Every ingredient quantity is stated in U.S. customary units — never metric. \
+Volume: tsp, tbsp, fl oz, cup, pint, quart, gallon. Weight: oz, lb. \
+Countable things: count. Use fl oz for liquids and oz only for weight.
+
+- A `count` ingredient must name a specific countable thing: "garlic clove", \
+"yellow onion", "red bell pepper", "lemon" — never a bare "garlic" or \
+"onion", which say nothing about what to buy. When the countable form is \
+unclear, give a weight instead.
+- When an ingredient is sold in a fixed-size package (a 15 oz can of beans, \
+a 5 lb bag of rice), keep `quantity` as the real amount the meals need and \
+fill `package` with the size it is sold in. The grocery list works out how \
+many packages to buy — do not round the quantity up yourself.
+- Use the same unit family for an ingredient across every meal that uses it, \
+so it merges to one line on the grocery list.
+
 ## Cooking instructions
 
 Every meal must be actionable: either it carries a recipe link \

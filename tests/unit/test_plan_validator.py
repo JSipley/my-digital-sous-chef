@@ -22,6 +22,7 @@ def make_meal(
                 "name": "turkey",
                 "quantity": 1.0,
                 "unit": "lb",
+                "package": None,
                 "estimated_price_usd": 6.0,
             }
         ]
@@ -401,6 +402,7 @@ class TestMealFields:
                             "name": "turkey",
                             "quantity": 0,
                             "unit": "lb",
+                            "package": None,
                             "estimated_price_usd": 6.0,
                         }
                     ]
@@ -422,6 +424,7 @@ class TestMealFields:
                             "name": "turkey",
                             "quantity": 1.0,
                             "unit": "lb",
+                            "package": None,
                             "estimated_price_usd": -1.0,
                         }
                     ]
@@ -443,6 +446,7 @@ class TestMealFields:
                             "name": " ",
                             "quantity": 1.0,
                             "unit": "lb",
+                            "package": None,
                             "estimated_price_usd": 6.0,
                         }
                     ]
@@ -450,6 +454,89 @@ class TestMealFields:
             ]
         )
         assert "missing_field" in codes(plan)
+
+
+def three_meals(ingredients: list[dict[str, Any]]) -> WeeklyPlan:
+    """A valid three-dinner plan whose last meal carries `ingredients`."""
+    return make_plan(
+        meals=[
+            make_meal(
+                "Chicken chili", batch={"lunches_covered": 2, "total_portions": 3}
+            ),
+            make_meal("Seared salmon", stretch={"technique": "searing"}),
+            make_meal(ingredients=ingredients),
+        ]
+    )
+
+
+def counted(name: str, package: dict[str, Any] | None = None) -> dict[str, Any]:
+    return {
+        "name": name,
+        "quantity": 2.0,
+        "unit": "count",
+        "package": package,
+        "estimated_price_usd": 1.0,
+    }
+
+
+class TestAmbiguousCountNames:
+    """Issue #23: '2 count garlic' does not say cloves or heads."""
+
+    def test_bare_garlic_by_count_is_ambiguous(self) -> None:
+        assert "ambiguous_ingredient" in codes(three_meals([counted("garlic")]))
+
+    def test_bare_onion_by_count_is_ambiguous(self) -> None:
+        assert "ambiguous_ingredient" in codes(three_meals([counted("Onions")]))
+
+    def test_qualified_name_is_accepted(self) -> None:
+        assert codes(three_meals([counted("garlic cloves")])) == set()
+        assert codes(three_meals([counted("yellow onion")])) == set()
+
+    def test_unambiguous_count_name_is_accepted(self) -> None:
+        assert codes(three_meals([counted("lemon")])) == set()
+
+    def test_weighed_ingredient_is_never_ambiguous(self) -> None:
+        weighed = {
+            "name": "garlic",
+            "quantity": 3.0,
+            "unit": "oz",
+            "package": None,
+            "estimated_price_usd": 1.0,
+        }
+        assert codes(three_meals([weighed])) == set()
+
+    def test_message_names_the_fix(self) -> None:
+        errors = validate_plan(three_meals([counted("garlic")]))
+        message = next(e.message for e in errors if e.code == "ambiguous_ingredient")
+        assert "garlic" in message
+
+
+class TestPackageFields:
+    def test_nonpositive_package_size_is_invalid_value(self) -> None:
+        plan = three_meals(
+            [
+                counted(
+                    "lemon", {"form": "bag", "size_amount": 0.0, "size_unit": "count"}
+                )
+            ]
+        )
+        assert "invalid_value" in codes(plan)
+
+    def test_blank_package_form_is_missing_field(self) -> None:
+        plan = three_meals(
+            [counted("lemon", {"form": " ", "size_amount": 4.0, "size_unit": "count"})]
+        )
+        assert "missing_field" in codes(plan)
+
+    def test_valid_package_is_accepted(self) -> None:
+        plan = three_meals(
+            [
+                counted(
+                    "lemon", {"form": "bag", "size_amount": 4.0, "size_unit": "count"}
+                )
+            ]
+        )
+        assert codes(plan) == set()
 
 
 class TestMultipleErrors:

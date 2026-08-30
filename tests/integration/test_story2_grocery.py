@@ -41,6 +41,7 @@ def meal(
                 "name": f"{protein} cut",
                 "quantity": 1.0,
                 "unit": "lb",
+                "package": None,
                 "estimated_price_usd": 8.0,
             }
         ]
@@ -57,11 +58,18 @@ def meal(
     }
 
 
-def ingredient(name: str, quantity: float, unit: str, price: float) -> dict[str, Any]:
+def ingredient(
+    name: str,
+    quantity: float,
+    unit: str,
+    price: float,
+    package: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     return {
         "name": name,
         "quantity": quantity,
         "unit": unit,
+        "package": package,
         "estimated_price_usd": price,
     }
 
@@ -80,7 +88,17 @@ def plan_payload(
                 ingredients=[
                     ingredient("chicken thighs", 3.0, "lb", 12.0),
                     ingredient("Olive Oil", 2.0, "tbsp", 0.5),
-                    ingredient("black beans", 2.0, "can", 2.4),
+                    ingredient(
+                        "black beans",
+                        30.0,
+                        "oz",
+                        2.4,
+                        package={
+                            "form": "can",
+                            "size_amount": 15.0,
+                            "size_unit": "oz",
+                        },
+                    ),
                 ],
             ),
             meal(
@@ -155,7 +173,8 @@ class TestScenario1FlatMergedListOnAccept:
         # olive oil appears in all three meals but merges to one line.
         assert names.count("olive oil") == 1
         oil = next(i for i in accepted.grocery.items if i.name == "olive oil")
-        assert [(q.amount, q.unit) for q in oil.quantities] == [(4.0, "tbsp")]
+        # 2 + 1 + 1 tbsp merges to one quantity in the unit the total fills.
+        assert [(q.amount, q.unit) for q in oil.quantities] == [(2.0, "fl oz")]
 
         rows = repo.connection.execute("SELECT week_id, status FROM plans").fetchall()
         assert [(row["week_id"], row["status"]) for row in rows] == [

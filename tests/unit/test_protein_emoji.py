@@ -103,6 +103,7 @@ def meal(primary_protein: str, **overrides: Any) -> dict[str, Any]:
                 "name": "olive oil",
                 "quantity": 1.0,
                 "unit": "tbsp",
+                "package": None,
                 "estimated_price_usd": 0.3,
             }
         ],

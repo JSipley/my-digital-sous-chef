@@ -10,7 +10,14 @@ from __future__ import annotations
 from collections.abc import Collection
 from dataclasses import dataclass
 
-from sous_chef.models.plan import Meal, WeeklyPlan, normalize_dish_name
+from sous_chef.models.plan import (
+    Ingredient,
+    Meal,
+    Unit,
+    WeeklyPlan,
+    normalize_dish_name,
+)
+from sous_chef.services.grocery import normalize_ingredient_name
 
 DINNER_RANGE = range(1, 8)
 LUNCH_RANGE = range(0, 8)
@@ -28,6 +35,29 @@ ERROR_CODES = frozenset(
         "repeated_dish",
         "missing_field",
         "invalid_value",
+        "ambiguous_ingredient",
+    }
+)
+
+# Names that say nothing useful when counted: two garlic is two cloves or
+# two heads, three onion is any of a dozen varieties (issue #23). Matching
+# is on the normalized name, so 'garlic cloves' and 'yellow onion' pass.
+AMBIGUOUS_COUNT_NAMES = frozenset(
+    {
+        "garlic",
+        "onion",
+        "shallot",
+        "pepper",
+        "chili",
+        "chile",
+        "squash",
+        "melon",
+        "cabbage",
+        "lettuce",
+        "greens",
+        "herb",
+        "mushroom",
+        "potato",
     }
 )
 
@@ -255,4 +285,47 @@ def _meal_field_errors(meal: Meal) -> list[PlanError]:
                     f"have a non-negative price, got {ingredient.estimated_price_usd}",
                 )
             )
+        errors.extend(_ambiguous_name_errors(meal, ingredient))
+        errors.extend(_package_errors(meal, ingredient))
+    return errors
+
+
+def _ambiguous_name_errors(meal: Meal, ingredient: Ingredient) -> list[PlanError]:
+    if ingredient.unit is not Unit.COUNT:
+        return []
+    if normalize_ingredient_name(ingredient.name) not in AMBIGUOUS_COUNT_NAMES:
+        return []
+    return [
+        PlanError(
+            "ambiguous_ingredient",
+            f"'{ingredient.name}' of meal '{meal.name}' cannot be counted as "
+            "written — name the variety or the part being counted (e.g. "
+            "'garlic clove', 'yellow onion', 'red bell pepper'), or give a "
+            "weight instead",
+        )
+    ]
+
+
+def _package_errors(meal: Meal, ingredient: Ingredient) -> list[PlanError]:
+    package = ingredient.package
+    if package is None:
+        return []
+    errors = []
+    if not package.form.strip():
+        errors.append(
+            PlanError(
+                "missing_field",
+                f"the package of ingredient '{ingredient.name}' of meal "
+                f"'{meal.name}' is missing its form (e.g. 'can', 'bag')",
+            )
+        )
+    if package.size_amount <= 0:
+        errors.append(
+            PlanError(
+                "invalid_value",
+                f"the package of ingredient '{ingredient.name}' of meal "
+                f"'{meal.name}' must have size_amount > 0, got "
+                f"{package.size_amount}",
+            )
+        )
     return errors

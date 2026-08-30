@@ -20,6 +20,7 @@ def ingredient(
         "name": name,
         "quantity": quantity,
         "unit": unit,
+        "package": None,
         "estimated_price_usd": price,
     }
 
