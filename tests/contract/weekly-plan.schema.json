@@ -67,7 +67,7 @@
         },
         "primary_protein": {
           "type": "string",
-          "description": "Primary protein source, stated qualitatively (FR-007)."
+          "description": "Primary protein source, stated qualitatively."
         },
         "prep_minutes": {
           "type": "integer",
@@ -93,7 +93,7 @@
         },
         "source_url": {
           "type": ["string", "null"],
-          "description": "Source URL when the meal is based on a recipe found via web search (FR-010); null otherwise."
+          "description": "Source URL when the meal is based on a recipe found via web search; null otherwise."
         },
         "user_requested_repeat": {
           "type": "boolean",

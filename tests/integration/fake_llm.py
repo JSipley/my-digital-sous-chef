@@ -1,4 +1,4 @@
-"""Scripted fake LLM transport (T014, research R13).
+"""Scripted fake LLM transport.
 
 Implements the same `Transport` protocol as `agent/client.py` but replays
 scripted turns deterministically offline. Tool calls in the script are

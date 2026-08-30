@@ -1,8 +1,8 @@
-"""SQLite persistence for accepted plans and meal history (research R8).
+"""SQLite persistence for accepted plans and meal history.
 
-Owns every SQL statement in the project. Schema exactly per data-model.md:
-a `plans` row per week plus normalized `meals` rows for the repetition
-window, technique history, and recall queries.
+Owns every SQL statement in the project. Schema: a `plans` row per week
+plus normalized `meals` rows for the repetition window, technique history,
+and recall queries.
 """
 
 from __future__ import annotations
@@ -21,7 +21,7 @@ from sous_chef.services.weeks import REPETITION_WINDOW_WEEKS, previous_week_ids
 
 
 class CheckinError(Exception):
-    """A cooked check-in that cannot be recorded (contracts/agent-tools.md)."""
+    """A cooked check-in that cannot be recorded."""
 
     def __init__(self, code: str, message: str) -> None:
         super().__init__(message)
@@ -30,7 +30,7 @@ class CheckinError(Exception):
 
 
 class InstructionsError(Exception):
-    """Cooking instructions that cannot be saved (contracts/agent-tools.md)."""
+    """Cooking instructions that cannot be saved."""
 
     def __init__(self, code: str, message: str) -> None:
         super().__init__(message)
@@ -89,7 +89,7 @@ class HistoryRepo:
     def save_accepted_plan(
         self, plan: WeeklyPlan, grocery: GroceryList, *, accepted_at: datetime
     ) -> int:
-        """Upsert the week's plan (FR-022) and replace its meal rows.
+        """Upsert the week's plan and replace its meal rows.
 
         Superseded intra-week versions are overwritten; the first
         acceptance timestamp is kept, updated_at reflects the latest.
@@ -157,7 +157,7 @@ class HistoryRepo:
         )
 
     def finalize_weeks_before(self, week_id: str) -> None:
-        """Lazily mark past weeks final (research R11); called on lookup."""
+        """Lazily mark past weeks final; called on lookup."""
         with self.connection:
             self.connection.execute(
                 "UPDATE plans SET status = 'final' "
@@ -180,7 +180,7 @@ class HistoryRepo:
         return [str(row["normalized_name"]) for row in rows]
 
     def cooked_techniques(self) -> list[str]:
-        """Distinct techniques from cooked stretch meals, all history (FR-006)."""
+        """Distinct techniques from cooked stretch meals, all history."""
         rows = self.connection.execute(
             "SELECT DISTINCT technique FROM meals "
             "WHERE is_stretch = 1 AND cooked_status = 'cooked' "
@@ -198,7 +198,7 @@ class HistoryRepo:
         return [_meal_entry(row) for row in rows]
 
     def find_meals_by_normalized_name(self, name: str) -> list[MealHistoryEntry]:
-        """Past occurrences of a dish for recall (FR-024), most recent first."""
+        """Past occurrences of a dish for recall, most recent first."""
         rows = self.connection.execute(
             "SELECT week_id, meal_name, normalized_name, is_batch, is_stretch, "
             "technique, cooked_status FROM meals WHERE normalized_name = ? "
@@ -284,7 +284,7 @@ class HistoryRepo:
         return None if row is None else str(row["week_id"])
 
     def pending_checkin_week_id(self) -> str | None:
-        """The most recent final week still holding planned rows (FR-021)."""
+        """The most recent final week still holding planned rows."""
         row = self.connection.execute(
             "SELECT p.week_id FROM plans p WHERE p.status = 'final' AND EXISTS ("
             "  SELECT 1 FROM meals m"
@@ -320,7 +320,7 @@ class HistoryRepo:
     def record_checkin(
         self, week_id: str, cooked_meal_names: Sequence[str], *, user_skipped: bool
     ) -> CheckinResult:
-        """Mark listed meals cooked and the rest of the week skipped (FR-021).
+        """Mark listed meals cooked and the rest of the week skipped.
 
         With `user_skipped=True` every planned meal is marked cooked.
         Raises CheckinError for an unknown week, an unknown meal name, or a

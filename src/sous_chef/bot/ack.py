@@ -1,4 +1,4 @@
-"""Typing indicator while the agent works (SC-007, FR-027).
+"""Typing indicator while the agent works.
 
 Telegram expires a chat action after ~5 s, so the typing indicator is
 refreshed every ~4 s for as long as the agent is working.

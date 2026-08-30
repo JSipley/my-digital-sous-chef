@@ -1,4 +1,4 @@
-"""Unit tests for ISO-week identity and lifecycle (T005)."""
+"""Unit tests for ISO-week identity and lifecycle."""
 
 from datetime import datetime
 from zoneinfo import ZoneInfo

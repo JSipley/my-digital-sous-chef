@@ -1,4 +1,4 @@
-"""ISO-week identity and lifecycle (research R11).
+"""ISO-week identity and lifecycle.
 
 Weeks are identified as ISO 8601 week strings (`2026-W30`, Monday start),
 computed in the configured timezone. Week-end transitions are evaluated

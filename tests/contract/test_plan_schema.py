@@ -1,4 +1,4 @@
-"""Contract test: WeeklyPlan Pydantic model ⇄ weekly-plan.schema.json (T006).
+"""Contract test: WeeklyPlan Pydantic model ⇄ weekly-plan.schema.json.
 
 The schema generated from the implementation model must match the checked-in
 contract file structurally (same properties, required sets, types, refs, and
@@ -11,13 +11,7 @@ from typing import Any
 
 from sous_chef.models.plan import PlanStatus, WeeklyPlan
 
-CONTRACT_PATH = (
-    Path(__file__).parents[2]
-    / "specs"
-    / "001-weekly-dinner-planner"
-    / "contracts"
-    / "weekly-plan.schema.json"
-)
+CONTRACT_PATH = Path(__file__).parent / "weekly-plan.schema.json"
 
 STRIPPED_KEYS = {"title", "description", "$schema", "$id"}
 

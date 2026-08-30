@@ -20,7 +20,7 @@ class PlanStatus(StrEnum):
 
 
 def normalize_dish_name(name: str) -> str:
-    """Casefold, trim, and collapse whitespace for repetition matching (FR-023)."""
+    """Casefold, trim, and collapse whitespace for repetition matching."""
     return " ".join(name.casefold().split())
 
 
@@ -79,7 +79,7 @@ class Meal(BaseModel):
         )
     )
     primary_protein: str = Field(
-        description="Primary protein source, stated qualitatively (FR-007)."
+        description="Primary protein source, stated qualitatively."
     )
     prep_minutes: int = Field(
         description="Estimated prep time in minutes. Validator enforces > 0."
@@ -98,8 +98,8 @@ class Meal(BaseModel):
     )
     source_url: str | None = Field(
         description=(
-            "Source URL when the meal is based on a recipe found via web search "
-            "(FR-010); null otherwise."
+            "Source URL when the meal is based on a recipe found via web search; "
+            "null otherwise."
         )
     )
     user_requested_repeat: bool = Field(

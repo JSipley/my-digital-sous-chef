@@ -1,4 +1,4 @@
-"""Telegram MarkdownV2 rendering of plans for phone screens (FR-026).
+"""Telegram MarkdownV2 rendering of plans for phone screens.
 
 The transport renders artifacts verbatim from the models — it never
 recomputes or reorders anything the tools produced.
@@ -16,7 +16,7 @@ TELEGRAM_MESSAGE_LIMIT = 4096
 
 _MARKDOWN_V2_RESERVED = re.compile(r"([_*\[\]()~`>#+\-=|{}.!\\])")
 
-# `primary_protein` is free text (FR-007), so the emoji is keyword-matched.
+# `primary_protein` is free text, so the emoji is keyword-matched.
 # Order is load-bearing: categories collide as substrings, and the first
 # match wins — a "tuna steak" is fish, "turkey bacon" is poultry.
 _PROTEIN_KEYWORDS: tuple[tuple[str, tuple[str, ...]], ...] = (

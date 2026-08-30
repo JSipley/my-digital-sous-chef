@@ -1,7 +1,7 @@
-"""Live-API smoke tests (T051) — marked `live`, excluded from the default run.
+"""Live-API smoke tests — marked `live`, excluded from the default run.
 
 Run with: uv run pytest -m live  (requires ANTHROPIC_API_KEY)
-Draft-plan latency budget (SC-007): uv run pytest -m live -k draft_latency
+Draft-plan latency budget: uv run pytest -m live -k draft_latency
 """
 
 import os
@@ -70,6 +70,6 @@ class TestLiveSmoke:
         elapsed = time.perf_counter() - started
         assert outcome.newly_staged_plan is not None
         assert elapsed < DRAFT_LATENCY_BUDGET_SECONDS, (
-            f"draft plan took {elapsed:.1f}s; SC-007 budget is "
+            f"draft plan took {elapsed:.1f}s; budget is "
             f"{DRAFT_LATENCY_BUDGET_SECONDS:.0f}s"
         )

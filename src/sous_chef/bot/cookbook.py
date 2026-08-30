@@ -1,4 +1,4 @@
-"""Inline-keyboard plumbing for /cookbook (contracts/telegram-bot.md).
+"""Inline-keyboard plumbing for /cookbook.
 
 Telegram caps callback_data at 64 bytes — far too tight for arbitrary meal
 names — so a meal tap is encoded as its *index into the plan's meals list*.

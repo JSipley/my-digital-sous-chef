@@ -1,7 +1,7 @@
-"""Telegram transport per contracts/telegram-bot.md.
+"""Telegram transport.
 
 Long polling, single-chat allowlist, command handlers, delivery of the
-agent's replies, and the user-visible error states (FR-028).
+agent's replies, and the user-visible error states.
 """
 
 from __future__ import annotations
