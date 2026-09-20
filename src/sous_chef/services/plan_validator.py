@@ -40,8 +40,8 @@ ERROR_CODES = frozenset(
 )
 
 # Names that say nothing useful when counted: two garlic is two cloves or
-# two heads, three onion is any of a dozen varieties (issue #23). Matching
-# is on the normalized name, so 'garlic cloves' and 'yellow onion' pass.
+# two heads, three onion is any of a dozen varieties. Matching is on the
+# normalized name, so 'garlic cloves' and 'yellow onion' pass.
 AMBIGUOUS_COUNT_NAMES = frozenset(
     {
         "garlic",

@@ -14,7 +14,7 @@ from pydantic.json_schema import SkipJsonSchema
 
 
 class Unit(StrEnum):
-    """The U.S. customary units a quantity may be stated in (R9, issue #23).
+    """The U.S. customary units a quantity may be stated in.
 
     Volume and weight are separate families and never convert into each
     other, so `fl oz` (volume) and `oz` (weight) are distinct members.
