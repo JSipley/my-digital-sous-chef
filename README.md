@@ -5,10 +5,12 @@ bot**. Tell it how many dinners (1–7) you want to cook this week — optionall
 how many lunches too — and it curates healthy, high-protein meals: always
 exactly one **batch meal** (cooked once, portioned to cover your lunches) and,
 on any week with 2 or more dinners, one **stretch meal** that teaches a new
-technique. Accepting the plan produces a merged **grocery list**
-with a computed **estimated bill**, optionally checked against a weekly
-budget. Accepted plans persist to SQLite; the next week's session opens with a
-cooked check-in, and dishes you cooked don't repeat within 4 weeks.
+technique. Accepting the plan produces a merged **grocery list** in U.S.
+customary units — each ingredient on one line in a single unit, with can and
+bag sizes worked out for you — plus a computed **estimated bill**, optionally
+checked against a weekly budget. Accepted plans persist to SQLite; the next
+week's session opens with a cooked check-in, and dishes you cooked don't
+repeat within 4 weeks.
 
 Conversation and curation are driven by the Claude API (Claude Sonnet 5); all
 hard rules are enforced by deterministic Python code — *the model proposes,

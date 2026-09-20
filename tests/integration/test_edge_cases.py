@@ -56,6 +56,7 @@ def meal(
                 "name": f"{name} base",
                 "quantity": ingredient_quantity,
                 "unit": "lb",
+                "package": None,
                 "estimated_price_usd": ingredient_price,
             }
         ],

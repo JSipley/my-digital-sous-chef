@@ -9,7 +9,10 @@ import json
 from pathlib import Path
 from typing import Any
 
-from sous_chef.models.plan import PlanStatus, WeeklyPlan
+import pytest
+from pydantic import ValidationError
+
+from sous_chef.models.plan import PlanStatus, Unit, WeeklyPlan
 
 CONTRACT_PATH = Path(__file__).parent / "weekly-plan.schema.json"
 
@@ -67,6 +70,7 @@ def sample_payload() -> dict[str, Any]:
                     "name": "chicken thighs",
                     "quantity": 1.5,
                     "unit": "lb",
+                    "package": None,
                     "estimated_price_usd": 7.5,
                 }
             ],
@@ -132,3 +136,37 @@ class TestRoundTrip:
         plan = WeeklyPlan.model_validate(sample_payload())
         meal = plan.meals[0].model_copy(update={"name": "  Chicken  CHILI "})
         assert meal.normalized_name == "chicken chili"
+
+
+class TestUnitEnum:
+    """Issue #23: quantities are U.S. customary, pinned by the schema."""
+
+    def test_enum_members_match_the_contract(self) -> None:
+        unit_schema = contract_schema()["$defs"]["Unit"]
+        assert [unit.value for unit in Unit] == unit_schema["enum"]
+
+    @pytest.mark.parametrize("bad_unit", ["g", "kg", "ml", "l", "can", "bunch"])
+    def test_non_customary_units_are_rejected(self, bad_unit: str) -> None:
+        payload = sample_payload()
+        payload["meals"][0]["ingredients"][0]["unit"] = bad_unit
+        with pytest.raises(ValidationError) as caught:
+            WeeklyPlan.model_validate(payload)
+        # The model self-corrects from this message, so it must name the
+        # units it is allowed to use.
+        assert "fl oz" in str(caught.value)
+
+    def test_package_round_trips(self) -> None:
+        payload = sample_payload()
+        payload["meals"][0]["ingredients"][0]["package"] = {
+            "form": "can",
+            "size_amount": 15.0,
+            "size_unit": "oz",
+        }
+        plan = WeeklyPlan.model_validate(payload)
+        package = plan.meals[0].ingredients[0].package
+        assert package is not None
+        assert (package.form, package.size_amount, package.size_unit) == (
+            "can",
+            15.0,
+            Unit.OZ,
+        )

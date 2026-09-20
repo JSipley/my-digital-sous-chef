@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "weekly-plan.schema.json",
   "title": "WeeklyPlan",
-  "description": "Input schema for the propose_plan tool (declared with strict: true). Numeric ranges (dinner_count 1-7, lunch_count 0-7, positive quantities) are enforced by deterministic validators, not the schema, because strict tool use does not support numeric constraints.",
+  "description": "Input schema for the propose_plan tool (declared with strict: true). Numeric ranges (dinner_count 1-7, lunch_count 0-7, positive quantities) are enforced by deterministic validators, not the schema, because strict tool use does not support numeric constraints. Ingredient units are U.S. customary only, pinned by the Unit enum.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -135,25 +135,64 @@
     "Ingredient": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["name", "quantity", "unit", "estimated_price_usd"],
+      "required": ["name", "quantity", "unit", "package", "estimated_price_usd"],
       "properties": {
         "name": {
           "type": "string",
-          "description": "Ingredient name; merged across meals after normalization."
+          "description": "Ingredient name; merged across meals after normalization. A count ingredient must name a specific countable thing ('garlic clove', 'yellow onion'), never a bare ambiguous one ('garlic', 'onion')."
         },
         "quantity": {
           "type": "number",
           "description": "Amount in the given unit. Validator enforces > 0."
         },
         "unit": {
-          "type": "string",
-          "description": "Unit token: g, kg, oz, lb, ml, l, tsp, tbsp, cup, count, or a free-form container unit like 'can'."
+          "$ref": "#/$defs/Unit",
+          "description": "U.S. customary unit for the quantity."
+        },
+        "package": {
+          "anyOf": [{ "$ref": "#/$defs/Package" }, { "type": "null" }],
+          "description": "How this ingredient is sold when it comes in a fixed-size package (a 15 oz can, a 5 lb bag); null for loose or measured goods. The quantity stays the real amount needed — the grocery list computes how many packages to buy."
         },
         "estimated_price_usd": {
           "type": "number",
           "description": "Good-faith typical grocery price for this quantity, USD. The weekly bill is the computed sum of these."
         }
       }
+    },
+    "Package": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["form", "size_amount", "size_unit"],
+      "properties": {
+        "form": {
+          "type": "string",
+          "description": "What the package is, singular and lowercase: 'can', 'jar', 'bag', 'box', 'bottle'."
+        },
+        "size_amount": {
+          "type": "number",
+          "description": "How much one package holds. Validator enforces > 0."
+        },
+        "size_unit": {
+          "$ref": "#/$defs/Unit",
+          "description": "Unit of size_amount. Must be in the same family as the ingredient's unit, or the package is ignored."
+        }
+      }
+    },
+    "Unit": {
+      "type": "string",
+      "enum": [
+        "tsp",
+        "tbsp",
+        "fl oz",
+        "cup",
+        "pint",
+        "quart",
+        "gallon",
+        "oz",
+        "lb",
+        "count"
+      ],
+      "description": "U.S. customary units only. Volume: tsp, tbsp, fl oz, cup, pint, quart, gallon. Weight: oz, lb. Countable things: count."
     }
   }
 }

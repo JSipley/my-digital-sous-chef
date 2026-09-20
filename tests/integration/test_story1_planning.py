@@ -49,6 +49,7 @@ def meal(
                 "name": f"{protein} cut",
                 "quantity": 1.0,
                 "unit": "lb",
+                "package": None,
                 "estimated_price_usd": 8.0,
             }
         ],

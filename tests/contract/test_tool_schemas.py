@@ -36,6 +36,7 @@ CONTRACT_ERROR_CODES = frozenset(
         "repeated_dish",
         "missing_field",
         "invalid_value",
+        "ambiguous_ingredient",
     }
 )
 
@@ -166,6 +167,8 @@ class TestAcceptPlanResultShape:
             assert item["quantities"], "every item carries at least one quantity"
             for quantity in item["quantities"]:
                 assert set(quantity) == {"amount", "unit"}
+            # null unless the ingredient is sold in fixed-size packages.
+            assert "package" in item
             assert isinstance(item["estimated_price_usd"], float)
         assert isinstance(grocery["estimated_total_usd"], float)
         assert grocery["budget_delta_usd"] is None
@@ -510,6 +513,7 @@ class TestGetMealInstructionsResultShape:
                 "name",
                 "quantity",
                 "unit",
+                "package",
                 "estimated_price_usd",
             }
 

@@ -13,6 +13,25 @@ from pydantic import BaseModel, ConfigDict, Field
 from pydantic.json_schema import SkipJsonSchema
 
 
+class Unit(StrEnum):
+    """The U.S. customary units a quantity may be stated in.
+
+    Volume and weight are separate families and never convert into each
+    other, so `fl oz` (volume) and `oz` (weight) are distinct members.
+    """
+
+    TSP = "tsp"
+    TBSP = "tbsp"
+    FL_OZ = "fl oz"
+    CUP = "cup"
+    PINT = "pint"
+    QUART = "quart"
+    GALLON = "gallon"
+    OZ = "oz"
+    LB = "lb"
+    COUNT = "count"
+
+
 class PlanStatus(StrEnum):
     DRAFT = "draft"
     ACCEPTED = "accepted"
@@ -24,19 +43,46 @@ def normalize_dish_name(name: str) -> str:
     return " ".join(name.casefold().split())
 
 
+class Package(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    form: str = Field(
+        description=(
+            "What the package is, singular and lowercase: 'can', 'jar', "
+            "'bag', 'box', 'bottle'."
+        )
+    )
+    size_amount: float = Field(
+        description="How much one package holds. Validator enforces > 0."
+    )
+    size_unit: Unit = Field(
+        description=(
+            "Unit of size_amount. Must be in the same family as the "
+            "ingredient's unit, or the package is ignored."
+        )
+    )
+
+
 class Ingredient(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     name: str = Field(
-        description="Ingredient name; merged across meals after normalization."
+        description=(
+            "Ingredient name; merged across meals after normalization. A count "
+            "ingredient must name a specific countable thing ('garlic clove', "
+            "'yellow onion'), never a bare ambiguous one ('garlic', 'onion')."
+        )
     )
     quantity: float = Field(
         description="Amount in the given unit. Validator enforces > 0."
     )
-    unit: str = Field(
+    unit: Unit = Field(description="U.S. customary unit for the quantity.")
+    package: Package | None = Field(
         description=(
-            "Unit token: g, kg, oz, lb, ml, l, tsp, tbsp, cup, count, "
-            "or a free-form container unit like 'can'."
+            "How this ingredient is sold when it comes in a fixed-size package "
+            "(a 15 oz can, a 5 lb bag); null for loose or measured goods. The "
+            "quantity stays the real amount needed — the grocery list computes "
+            "how many packages to buy."
         )
     )
     estimated_price_usd: float = Field(

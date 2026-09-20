@@ -34,6 +34,7 @@ def meal(name: str, *, source_url: str | None = None) -> dict[str, Any]:
                 "name": "chicken thighs",
                 "quantity": 1.5,
                 "unit": "lb",
+                "package": None,
                 "estimated_price_usd": 7.5,
             }
         ],
